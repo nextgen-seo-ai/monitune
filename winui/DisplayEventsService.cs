@@ -107,6 +107,9 @@ public sealed class DisplayEventsService : IDisposable
     long _lastDeviceChangeTick = 0;
 
     public event Action? OnConfigChanged;
+    /// <summary>Компьютер проснулся из сна/hibernate — хорошая точка чтобы проверить обновления
+    /// (могло пройти много часов пока спали).</summary>
+    public event Action? OnSystemResumed;
 
     public DisplayEventsService(DdcManager ddc, DispatcherQueue ui, Action<string>? log = null)
     {
@@ -216,6 +219,11 @@ public sealed class DisplayEventsService : IDisposable
             case PBT_APMRESUMEAUTOMATIC:
                 _log("PBT_APMRESUMEAUTOMATIC: system resumed");
                 _ddc.SuspendDdc(5000, "system resume");
+                _ui.TryEnqueue(() =>
+                {
+                    try { OnSystemResumed?.Invoke(); }
+                    catch (Exception ex) { _log("OnSystemResumed handler ex: " + ex.Message); }
+                });
                 break;
             case PBT_POWERSETTINGCHANGE:
                 if (lParam == IntPtr.Zero) return;

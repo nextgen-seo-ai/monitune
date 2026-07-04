@@ -161,6 +161,15 @@ public partial class App : Application
                 catch (Exception ex) { L("RefreshMonitors ex: " + ex); }
             }), null, 1500, System.Threading.Timeout.Infinite);
         };
+        _displayEvents.OnSystemResumed += () =>
+        {
+            // Пробуждение — проверить обновления. Могло пройти сутки во сне.
+            if (SettingsStore.Current.AutoCheckUpdates)
+            {
+                try { UpdateService.CheckInBackground(); L("update check after resume"); }
+                catch (Exception ex) { L("update check after resume ex: " + ex.Message); }
+            }
+        };
         _displayEvents.Install();
 
         _ddc.Start();
@@ -177,6 +186,14 @@ public partial class App : Application
                 catch (Exception ex) { L("ShowUpdateAvailable ex: " + ex); }
             });
             UpdateService.CheckInBackground();
+            // Периодическая проверка — приложение может жить в трее сутками,
+            // без этого узнало бы про обновления только на следующем рестарте.
+            // 4 часа = не спам GitHub API, но новые релизы не пропустим на день.
+            _updateCheckTimer = new System.Threading.Timer(_ =>
+            {
+                try { UpdateService.CheckInBackground(); L("periodic update check triggered"); }
+                catch (Exception ex) { L("periodic update check ex: " + ex.Message); }
+            }, null, TimeSpan.FromHours(4), TimeSpan.FromHours(4));
         }
 
         L("OnLaunched done");
@@ -219,6 +236,7 @@ public partial class App : Application
 
     System.Threading.Timer? _restartTimer;
     System.Threading.Timer? _configRestartTimer;
+    System.Threading.Timer? _updateCheckTimer;
     void OnDisplaysChanged(object? s, EventArgs e)
     {
         L("DisplaySettingsChanged — debounce restart");

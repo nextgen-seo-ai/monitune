@@ -99,17 +99,25 @@ public static class UpdateService
 
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("MonitorTune/" + CurrentVersion() + " (WinUI3)");
+        // GitHub CDN Fastly кэширует /releases/latest/download/* редиректы на 5-10 минут.
+        // Cache-bust query + Cache-Control гарантируют свежий ответ на каждой проверке.
+        http.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true };
+        http.DefaultRequestHeaders.Add("Pragma", "no-cache");
 
         byte[]? manifestBytes = null;
         byte[]? sigBytes = null;
         string? sourceUrl = null;
 
+        // Уникальный per-check timestamp — CDN не может смэтчить с закэшированным URL.
+        string cacheBust = "_=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         foreach (var url in sources)
         {
             try
             {
+                string urlWithBust = url + (url.Contains('?') ? "&" : "?") + cacheBust;
                 App.LogStatic($"UpdateService: probing {RedactUrl(url)}");
-                var manifestResp = await http.GetAsync(url, HttpCompletionOption.ResponseContentRead);
+                var manifestResp = await http.GetAsync(urlWithBust, HttpCompletionOption.ResponseContentRead);
                 if (!manifestResp.IsSuccessStatusCode)
                 {
                     App.LogStatic($"UpdateService: {RedactUrl(url)} → HTTP {(int)manifestResp.StatusCode}");
@@ -118,7 +126,8 @@ public static class UpdateService
                 var mBytes = await manifestResp.Content.ReadAsByteArrayAsync();
 
                 var sigUrl = url + ".sig";
-                var sigResp = await http.GetAsync(sigUrl, HttpCompletionOption.ResponseContentRead);
+                string sigUrlWithBust = sigUrl + (sigUrl.Contains('?') ? "&" : "?") + cacheBust;
+                var sigResp = await http.GetAsync(sigUrlWithBust, HttpCompletionOption.ResponseContentRead);
                 if (!sigResp.IsSuccessStatusCode)
                 {
                     App.LogStatic($"UpdateService: {RedactUrl(sigUrl)} → HTTP {(int)sigResp.StatusCode} (нет .sig, пропуск)");

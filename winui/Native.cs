@@ -90,6 +90,12 @@ internal static class Native
     [DllImport("kernel32.dll")]
     public static extern uint GetCurrentThreadId();
 
+    /// <summary>Регистрирует приложение для авто-перезапуска Windows-ом после kill / crash / update-shutdown.
+    /// Возвращает S_OK (0) при успехе. dwFlags = 0 → перезапускать всегда (кроме user close).
+    /// Для packaged MSIX Windows знает путь к новому exe после install, поэтому restart попадёт на новую версию.</summary>
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    public static extern int RegisterApplicationRestart(string? pwzCommandline, int dwFlags);
+
     // === DisplayConfig API для marketing-name монитора ===
     [StructLayout(LayoutKind.Sequential)]
     public struct LUID { public uint LowPart; public int HighPart; }

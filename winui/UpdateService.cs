@@ -300,6 +300,17 @@ public static class UpdateService
 
             // 3. Install.
             App.LogStatic($"UpdateService: installing {msixPath}");
+            // Регистрируем auto-restart ДО AddPackageAsync — Windows после kill'а
+            // deployment API'ем сама поднимет обновлённый exe по тому же
+            // WindowsApps\<PFN>\ пути (там уже будет новая версия).
+            // dwFlags=0 → перезапуск в любой ситуации кроме явного user-close.
+            try
+            {
+                int rar = Native.RegisterApplicationRestart(null, 0);
+                App.LogStatic($"UpdateService: RegisterApplicationRestart hr=0x{rar:X8} ({(rar == 0 ? "OK" : "FAIL")})");
+            }
+            catch (Exception ex) { App.LogStatic($"RegisterApplicationRestart ex: {ex.Message}"); }
+
             var pm = new PackageManager();
             var op = pm.AddPackageAsync(new Uri(msixPath), null,
                 DeploymentOptions.ForceApplicationShutdown | DeploymentOptions.ForceTargetApplicationShutdown);

@@ -106,6 +106,10 @@ public partial class App : Application
         SettingsStore.Load();
         L("settings loaded; sync=" + SettingsStore.Current.SyncAllMonitors);
 
+        // Если мы поднялись после auto-update (через scheduled task или вручную) —
+        // почистить остаток scheduled task и marker. Идемпотентно.
+        UpdateService.ResumeAfterUpdateIfNeeded();
+
         _ddc = new DdcManager();
         DdcManager.Log = L;
         _ddc.OnValue += u => _ui!.TryEnqueue(() => _window?.OnValueUpdate(u));

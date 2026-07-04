@@ -300,16 +300,25 @@ public static class UpdateService
 
             // 3. Install.
             App.LogStatic($"UpdateService: installing {msixPath}");
-            // Регистрируем auto-restart ДО AddPackageAsync — Windows после kill'а
-            // deployment API'ем сама поднимет обновлённый exe по тому же
-            // WindowsApps\<PFN>\ пути (там уже будет новая версия).
-            // dwFlags=0 → перезапуск в любой ситуации кроме явного user-close.
+
+            // (a) Zero-cost fallback: RegisterApplicationRestart. Для packaged MSIX
+            // не гарантирован (WindowsApps path меняется при install), но иногда срабатывает.
             try
             {
                 int rar = Native.RegisterApplicationRestart(null, 0);
                 App.LogStatic($"UpdateService: RegisterApplicationRestart hr=0x{rar:X8} ({(rar == 0 ? "OK" : "FAIL")})");
             }
             catch (Exception ex) { App.LogStatic($"RegisterApplicationRestart ex: {ex.Message}"); }
+
+            // (b) Основной механизм: одноразовая Task Scheduler задача.
+            // Планируем ДО AddPackageAsync (после kill наш процесс мёртв).
+            // Task Scheduler service живёт в отдельном job'е, переживёт наш kill.
+            // Delay 90 сек покрывает worst-case: slow disk, Defender full-scan, staging.
+            // AUMID резолвится динамически из Package.Current.GetAppListEntries().
+            const int RestartDelaySeconds = 90;
+            bool scheduled = ScheduleOneShotRestart(RestartDelaySeconds, out string? scheduleError);
+            if (!scheduled)
+                App.LogStatic($"UpdateService: schtasks scheduling FAILED ({scheduleError ?? "?"}) — user will need to launch manually");
 
             var pm = new PackageManager();
             var op = pm.AddPackageAsync(new Uri(msixPath), null,
@@ -320,7 +329,7 @@ public static class UpdateService
                 App.LogStatic($"UpdateService: install error {result.ExtendedErrorCode.HResult:X}: {result.ErrorText}");
                 return false;
             }
-            App.LogStatic("UpdateService: install OK");
+            App.LogStatic($"UpdateService: install OK — task will restart in ~{RestartDelaySeconds}s");
             return true;
         }
         catch (Exception ex)
@@ -380,5 +389,210 @@ public static class UpdateService
             return $"{u.Scheme}://[private:{hostHash}]{u.AbsolutePath}";
         }
         catch { return "[unparseable-url]"; }
+    }
+
+    // ── Post-update auto-restart (scheduled-task-oneshot approach) ──────
+
+    // Плоское имя scheduled task — без folder, чтобы не требовать прав на root namespace.
+    const string RestartTaskName = "MonitorTunePostUpdateRestart";
+
+    // Marker-файл в НАСТОЯЩЕМ %LOCALAPPDATA%\MonitorTune\pending-restart.txt
+    // (Environment.SpecialFolder.LocalApplicationData из runFullTrust MSIX процесса
+    // возвращает физический путь, не MSIX-виртуализированный LocalCacheFolder).
+    // Marker виден и старой и новой сессии → идемпотентный cleanup.
+    static string PendingRestartMarkerPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "MonitorTune", "pending-restart.txt");
+
+    /// <summary>Планирует одноразовый рестарт через N секунд через Task Scheduler.
+    /// AUMID резолвится ДИНАМИЧЕСКИ из Package.Current.GetAppListEntries() —
+    /// никакого hardcode "!App". Возвращает true если schtasks /Create отработал c rc=0.</summary>
+    static bool ScheduleOneShotRestart(int delaySeconds, out string? error)
+    {
+        error = null;
+        try
+        {
+            // 1. Динамический AUMID.
+            string? aumid = null;
+            try
+            {
+                var entries = Windows.ApplicationModel.Package.Current.GetAppListEntries();
+                if (entries != null && entries.Count > 0)
+                    aumid = entries[0].AppUserModelId;
+            }
+            catch (Exception ex) { App.LogStatic($"GetAppListEntries ex: {ex.Message}"); }
+
+            if (string.IsNullOrWhiteSpace(aumid))
+            {
+                var pfn = Windows.ApplicationModel.Package.Current.Id.FamilyName;
+                aumid = $"{pfn}!App";
+                App.LogStatic($"UpdateService: AUMID fallback → {aumid}");
+            }
+            else
+            {
+                App.LogStatic($"UpdateService: AUMID from GetAppListEntries → {aumid}");
+            }
+
+            // 2. Marker-файл ДО регистрации task. При следующем запуске (любом)
+            // ResumeAfterUpdateIfNeeded() почистит task и marker.
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(PendingRestartMarkerPath)!);
+                var lines = new[]
+                {
+                    $"aumid={aumid}",
+                    $"task={RestartTaskName}",
+                    $"scheduled_utc={DateTime.UtcNow:o}",
+                    $"trigger_utc={DateTime.UtcNow.AddSeconds(delaySeconds):o}",
+                };
+                File.WriteAllLines(PendingRestartMarkerPath, lines, Encoding.UTF8);
+            }
+            catch (Exception ex) { App.LogStatic($"UpdateService: marker write ex: {ex.Message}"); }
+
+            // 3. schtasks /XML — инвариантный формат даты, EndBoundary + DeleteExpiredTaskAfter
+            // → задача исчезает сама через 10 мин после окна старта. Окно старта 30 мин
+            // покрывает sleep/hibernate. AllowStartOnDemand=true разрешает ручной retry.
+            var triggerLocal = DateTime.Now.AddSeconds(delaySeconds);
+            var endBoundary = triggerLocal.AddMinutes(30);
+            string startBoundary = triggerLocal.ToString("yyyy-MM-ddTHH:mm:ss",
+                System.Globalization.CultureInfo.InvariantCulture);
+            string endBoundaryStr = endBoundary.ToString("yyyy-MM-ddTHH:mm:ss",
+                System.Globalization.CultureInfo.InvariantCulture);
+
+            string xml = $@"<?xml version=""1.0"" encoding=""UTF-16""?>
+<Task version=""1.2"" xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">
+  <RegistrationInfo>
+    <Description>MonitorTune one-shot post-update restart</Description>
+    <URI>\{RestartTaskName}</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>{startBoundary}</StartBoundary>
+      <EndBoundary>{endBoundaryStr}</EndBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id=""Author"">
+      <UserId>{System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>true</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT2M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+    <DeleteExpiredTaskAfter>PT10M</DeleteExpiredTaskAfter>
+  </Settings>
+  <Actions Context=""Author"">
+    <Exec>
+      <Command>explorer.exe</Command>
+      <Arguments>shell:AppsFolder\{aumid}</Arguments>
+    </Exec>
+  </Actions>
+</Task>";
+
+            // Task Scheduler XML требует UTF-16 LE с BOM.
+            string xmlPath = Path.Combine(Path.GetTempPath(), $"MonitorTuneRestartTask-{Guid.NewGuid():N}.xml");
+            File.WriteAllText(xmlPath, xml, new UnicodeEncoding(bigEndian: false, byteOrderMark: true));
+
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "schtasks.exe",
+                    Arguments = $"/Create /F /TN \"{RestartTaskName}\" /XML \"{xmlPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                using var p = System.Diagnostics.Process.Start(psi);
+                if (p == null) { error = "Process.Start returned null"; return false; }
+                string stdout = p.StandardOutput.ReadToEnd();
+                string stderr = p.StandardError.ReadToEnd();
+                bool exited = p.WaitForExit(10000);
+                if (!exited)
+                {
+                    try { p.Kill(); } catch { }
+                    error = "schtasks timeout";
+                    App.LogStatic($"UpdateService: schtasks TIMEOUT");
+                    return false;
+                }
+                App.LogStatic($"UpdateService: schtasks rc={p.ExitCode} out={stdout.Trim()} err={stderr.Trim()}");
+                if (p.ExitCode != 0)
+                {
+                    error = $"schtasks rc={p.ExitCode}: {stderr.Trim()}";
+                    return false;
+                }
+                return true;
+            }
+            finally
+            {
+                try { File.Delete(xmlPath); } catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            App.LogStatic($"UpdateService.ScheduleOneShotRestart ex: {ex}");
+            return false;
+        }
+    }
+
+    /// <summary>Вызывать в самом начале App.OnLaunched после инициализации логгера.
+    /// Cleanup scheduled task + marker: (а) когда новый процесс поднялся через task,
+    /// (б) когда юзер вручную запустил приложение раньше task — предотвращает дубликат.</summary>
+    public static void ResumeAfterUpdateIfNeeded()
+    {
+        try
+        {
+            string marker = PendingRestartMarkerPath;
+            if (!File.Exists(marker)) return;
+
+            App.LogStatic("UpdateService: pending-restart marker found — cleaning up scheduled task");
+
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "schtasks.exe",
+                    Arguments = $"/Delete /F /TN \"{RestartTaskName}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                using var p = System.Diagnostics.Process.Start(psi);
+                if (p != null)
+                {
+                    p.WaitForExit(5000);
+                    App.LogStatic($"UpdateService: cleanup schtasks /Delete rc={p.ExitCode}");
+                }
+            }
+            catch (Exception ex) { App.LogStatic($"UpdateService: schtasks /Delete ex: {ex.Message}"); }
+
+            try { File.Delete(marker); }
+            catch (Exception ex) { App.LogStatic($"UpdateService: marker delete ex: {ex.Message}"); }
+        }
+        catch (Exception ex)
+        {
+            App.LogStatic("UpdateService.ResumeAfterUpdateIfNeeded ex: " + ex);
+        }
     }
 }

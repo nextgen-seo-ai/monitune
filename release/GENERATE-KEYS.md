@@ -18,14 +18,23 @@
 ### Шаг 1 — сгенерировать cert
 
 ```powershell
+# Все параметры критичны — без -KeySpec Signature / -KeyExportPolicy Exportable
+# / RSA 2048 / SHA256 self-signed cert может создаться, но signtool отвергнет его
+# как "The certificate specified is not valid for signing".
 $cert = New-SelfSignedCertificate `
-    -Type Custom `
+    -Type CodeSigningCert `
     -Subject "CN=MonitorTune, O=nextgen-seo-ai, C=RU" `
     -KeyUsage DigitalSignature `
+    -KeyUsageProperty Sign `
+    -KeySpec Signature `
+    -KeyExportPolicy Exportable `
+    -KeyAlgorithm RSA `
+    -KeyLength 2048 `
+    -HashAlgorithm SHA256 `
     -FriendlyName "MonitorTune Signing 2026" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
     -NotAfter (Get-Date).AddYears(3) `
-    -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+    -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}false")
 
 # Показать thumbprint — понадобится для константы в коде
 Write-Host "THUMBPRINT: $($cert.Thumbprint)" -ForegroundColor Green

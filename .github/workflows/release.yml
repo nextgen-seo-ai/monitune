@@ -69,20 +69,69 @@ jobs:
           Write-Output "Version: $v4"
           "version=$v4" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Restore MSIX signing PFX
+      - name: Restore + verify MSIX signing PFX
         id: pfx
         shell: pwsh
         env:
           PFX_B64: ${{ secrets.MSIX_SIGNING_PFX_BASE64 }}
+          PFX_PWD: ${{ secrets.MSIX_SIGNING_PASSWORD }}
         run: |
           if (-not $env:PFX_B64) {
             Write-Error "Secret MSIX_SIGNING_PFX_BASE64 не установлен"
             exit 1
           }
+          if (-not $env:PFX_PWD) {
+            Write-Error "Secret MSIX_SIGNING_PASSWORD не установлен"
+            exit 1
+          }
+
+          # Robust base64 decode: убираем ЛЮБОЙ whitespace (пробелы, переносы, BOM).
+          # Windows notepad / GH UI могут добавить CRLF в середину или UTF-8 BOM в начало.
+          $b64 = $env:PFX_B64 -replace '[\s﻿]', ''
+          Write-Host "PFX base64 length after cleanup: $($b64.Length)"
+
           $pfxPath = Join-Path $env:RUNNER_TEMP "signing.pfx"
-          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:PFX_B64))
+          try {
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($b64))
+          } catch {
+            Write-Error "Base64 decode failed: $($_.Exception.Message). Проверь секрет MSIX_SIGNING_PFX_BASE64 — должен быть чистый base64 без переносов/спец-символов."
+            exit 1
+          }
+          $pfxSize = (Get-Item $pfxPath).Length
+          Write-Host "PFX file size: $pfxSize bytes"
+
+          # Пароль — тоже strip whitespace/BOM (частая ошибка при копипасте через notepad).
+          $pwd = $env:PFX_PWD -replace '[\r\n﻿]', ''
+          $pwdLen = $pwd.Length
+          Write-Host "Password length after cleanup: $pwdLen"
+
+          # Verify — попробуем открыть PFX. Если не открывается — сразу сигналим, до build.
+          try {
+            $securePwd = ConvertTo-SecureString -String $pwd -Force -AsPlainText
+            $cert = Get-PfxCertificate -FilePath $pfxPath -Password $securePwd -ErrorAction Stop
+            Write-Host "─── PFX diagnostics ───"
+            Write-Host "  Subject:      $($cert.Subject)"
+            Write-Host "  Thumbprint:   $($cert.Thumbprint)"
+            Write-Host "  NotAfter:     $($cert.NotAfter)"
+            Write-Host "  HasPrivate:   $($cert.HasPrivateKey)"
+            Write-Host "  KeyAlgorithm: $($cert.PublicKey.Oid.FriendlyName)"
+            $ekuList = $cert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.37' }
+            if ($ekuList) {
+              Write-Host "  EKU:          $($ekuList[0].EnhancedKeyUsages | ForEach-Object { $_.FriendlyName })"
+            } else {
+              Write-Host "  EKU:          (none) — cert может не подойти для code signing!"
+            }
+            if (-not $cert.HasPrivateKey) {
+              Write-Error "PFX не содержит приватного ключа — export с -KeyExportPolicy Exportable? Пересобрать cert по release/GENERATE-KEYS.md."
+              exit 1
+            }
+          } catch {
+            Write-Error "PFX не открывается: $($_.Exception.Message). Проверь пароль (MSIX_SIGNING_PASSWORD) и целостность base64."
+            exit 1
+          }
+
           Write-Output "PFX_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Output "PFX_PATH::$pfxPath"
+          Write-Host "PFX ready at: $pfxPath"
 
       - name: Update version in project
         shell: pwsh
@@ -100,8 +149,11 @@ jobs:
         shell: pwsh
         env:
           PFX_PATH: ${{ steps.pfx.outputs.PFX_PATH }}
-          PFX_PWD: ${{ secrets.MSIX_SIGNING_PASSWORD }}
+          PFX_PWD_RAW: ${{ secrets.MSIX_SIGNING_PASSWORD }}
         run: |
+          # Trim пароль (те же символы что в Restore step) — иначе msbuild сравнит
+          # trimmed cert password с untrimmed secret и всё сломается.
+          $env:PFX_PWD = $env:PFX_PWD_RAW -replace '[\r\n﻿]', ''
           Set-Location winui
           # ВАЖНО: два отдельных msbuild вызова (Restore, потом Build).
           # Chain /t:Restore;Build в одном вызове ломает WinUI 3 XAML compiler

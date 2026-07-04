@@ -121,10 +121,11 @@ body {
 }
 h1.hero-title {
   font-family: var(--display);
-  font-weight: 300;
-  font-size: clamp(44px, 6.2vw, 76px);
-  line-height: 0.98;
-  letter-spacing: -0.028em;
+  font-weight: 500;
+  font-size: clamp(38px, 5.6vw, 68px);
+  line-height: 1.02;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
   text-wrap: balance;
   margin: 0 0 28px;
 }
@@ -360,10 +361,11 @@ h1.hero-title em {
 }
 .feature h3 {
   font-family: var(--display);
-  font-weight: 500;
-  font-size: 22px;
+  font-weight: 600;
+  font-size: 19px;
   line-height: 1.25;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   margin: 0 0 6px;
   color: var(--paper);
 }
@@ -461,9 +463,10 @@ h1.hero-title em {
 }
 .trust-head h4 {
   font-family: var(--display);
-  font-weight: 500;
-  font-size: 17px;
-  letter-spacing: -0.008em;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   margin: 0;
   color: var(--paper);
 }
@@ -495,10 +498,11 @@ h1.hero-title em {
 }
 .trust-title {
   font-family: var(--display);
-  font-weight: 500;
-  font-size: 15px;
+  font-weight: 600;
+  font-size: 14px;
   color: var(--paper);
-  letter-spacing: -0.005em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   margin-bottom: 4px;
 }
 .trust-body {
@@ -818,11 +822,11 @@ const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
   let dragging = false;
 
   function render() {
-    const raw = Math.round(value * 255 / 100);
     fill.style.height = value + '%';
     thumb.style.bottom = value + '%';
     valEl.innerHTML = value + '<span style="font-size:22px;color:var(--paper-dim);margin-left:2px">%</span>';
-    rawEl.textContent = raw + ' / 255';
+    // rawEl больше не используется — оставлен для обратной совместимости, обновляем только если есть.
+    if (rawEl) rawEl.textContent = value + '% подсветки';
     dimmer.setAttribute('aria-valuenow', value);
     // Subtle page-brightness echo: 65..108% range, contained so hero stays legible.
     const pageBrightness = 0.65 + (value / 100) * 0.43;

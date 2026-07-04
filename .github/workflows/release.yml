@@ -103,6 +103,19 @@ jobs:
           PFX_PWD: ${{ secrets.MSIX_SIGNING_PASSWORD }}
         run: |
           Set-Location winui
+          # ВАЖНО: два отдельных msbuild вызова (Restore, потом Build).
+          # Chain /t:Restore;Build в одном вызове ломает WinUI 3 XAML compiler
+          # (InitializeComponent не найдено, x:Name элементы не резолвятся).
+          # Только раздельный запуск инициализирует правильный targets pipeline.
+          Write-Host "=== NuGet Restore ==="
+          & msbuild MonitorTune.csproj `
+            /t:Restore `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /verbosity:minimal /nologo
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+
+          Write-Host "=== Build + MSIX Package ==="
           & msbuild MonitorTune.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `

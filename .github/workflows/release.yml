@@ -231,6 +231,29 @@ jobs:
           choco install innosetup --no-progress -y
           # ISCC теперь в PATH
 
+      - name: Download WindowsAppRuntime (100 MB, не в repo)
+        shell: pwsh
+        run: |
+          # Bundled WinAppSDK runtime — ставится на целевую машину до MSIX.
+          # aka.ms ссылка возвращает latest для major.minor версии — если MS
+          # обновит 1.8.x, наш setup всегда получает свежий runtime.
+          $url = "https://aka.ms/windowsappsdk/1.8/latest/windowsappruntimeinstall-x64.exe"
+          $dest = "release\WindowsAppRuntime-x64.exe"
+          Write-Host "Downloading $url → $dest"
+          for ($i = 1; $i -le 3; $i++) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -MaximumRedirection 10
+              break
+            } catch {
+              Write-Host "Attempt $i failed: $($_.Exception.Message)"
+              if ($i -eq 3) { throw }
+              Start-Sleep -Seconds 5
+            }
+          }
+          $size = (Get-Item $dest).Length
+          Write-Host "WindowsAppRuntime-x64.exe: $([math]::Round($size/1MB,1)) MB"
+          if ($size -lt 50MB) { throw "WindowsAppRuntime подозрительно мал ($size байт) — вероятно ошибка redirect" }
+
       - name: Build Setup.exe (Inno)
         id: setup
         shell: pwsh
@@ -239,7 +262,7 @@ jobs:
         run: |
           # Скопировать свежий MSIX в release/ под именем которое ждёт Setup.iss
           Copy-Item $env:MSIX_PATH "release\MonitorTune_${{ steps.version.outputs.version }}_x64.msixbundle" -Force
-          # WindowsAppRuntime и cer должны уже лежать в release/ (закоммичены)
+          # WindowsAppRuntime скачан предыдущим step'ом, cer уже в repo.
           # Setup.iss обновить AppVersion (правим на лету)
           $iss = Get-Content "release\Setup.iss" -Raw
           $iss = $iss -replace '#define MyAppVersion "[^"]*"', ('#define MyAppVersion "${{ steps.version.outputs.version }}"')

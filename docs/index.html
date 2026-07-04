@@ -726,6 +726,7 @@ h1.hero-title em {
         <div class="file-name" id="file-name">MonitorTune-Setup.exe</div>
         <div class="file-props">
           <span><b>Версия</b> <span id="file-version">загрузка…</span></span>
+          <span><b>Размер</b> <span id="file-size">…</span></span>
           <span><b>Источник</b> GitHub Releases</span>
           <span class="hash" title="SHA-256 фиксируется в подписанном manifest.json на GitHub"><b>SHA-256</b> в подписанном манифесте</span>
         </div>
@@ -906,20 +907,34 @@ const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
   });
 })();
 
-/* ── Fetch актуальной версии из latest.json на GitHub Release ─────── */
+/* ── Fetch актуальной версии из GitHub API ─────────────────────────
+ * Используем api.github.com (CORS-friendly), не /releases/latest/download/latest.json
+ * (тот отдаётся через objects.githubusercontent.com без CORS → fetch fail).
+ * Rate limit без токена: 60 req/hour/IP — достаточно для landing.
+ */
 (function () {
-  const url = 'https://github.com/nextgen-seo-ai/monitune/releases/latest/download/latest.json?_=' + Date.now();
-  fetch(url, { cache: 'no-store' })
+  const url = 'https://api.github.com/repos/nextgen-seo-ai/monitune/releases/latest';
+  fetch(url, { cache: 'no-store', headers: { 'Accept': 'application/vnd.github+json' } })
     .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (m) {
-      if (!m || !m.version) return;
-      // Показать в hero-meta и в file-card
+    .then(function (release) {
+      if (!release || !release.tag_name) return;
+      // tag_name: "v1.0.8" → "v1.0.8"
+      const ver = release.tag_name;
       const heroVer = document.getElementById('hero-version');
-      if (heroVer) heroVer.textContent = 'v' + m.version;
+      if (heroVer) heroVer.textContent = ver;
       const fileVer = document.getElementById('file-version');
-      if (fileVer) fileVer.textContent = 'v' + m.version;
+      if (fileVer) fileVer.textContent = ver;
+      // Размер setup.exe из assets[]
+      if (Array.isArray(release.assets)) {
+        const setup = release.assets.find(function (a) { return a.name === 'MonitorTune-Setup.exe'; });
+        if (setup && setup.size) {
+          const mb = Math.round(setup.size / 1024 / 1024);
+          const sizeEl = document.getElementById('file-size');
+          if (sizeEl) sizeEl.textContent = mb + ' MB';
+        }
+      }
     })
-    .catch(function () { /* offline / cors — оставляем placeholder */ });
+    .catch(function () { /* offline или API rate limit — placeholder остаётся */ });
 })();
 
 /* Кнопка Download ведёт напрямую на GitHub Release — иммутабельный тег + TLS + CDN.

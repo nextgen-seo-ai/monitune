@@ -1,0 +1,124 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
+
+namespace MonitorTune;
+
+// Authenticode/AppX signature verification через WinVerifyTrust (wintrust.dll)
+// + извлечение thumbprint издателя через X509Certificate.
+//
+// Вызывается в UpdateService.DownloadAndInstallAsync ДО AddPackageAsync — чтобы
+// обнаружить подмену/битую подпись до install (иначе AddPackageAsync упадёт с
+// невнятной ошибкой, а мы не узнаем thumbprint для whitelist проверки).
+public static class AuthenticodeVerifier
+{
+    // ── Native constants / structs ─────────────────────────────────
+
+    // WINTRUST_ACTION_GENERIC_VERIFY_V2 — стандартный action для файловой Authenticode проверки.
+    static readonly Guid WINTRUST_ACTION_GENERIC_VERIFY_V2 =
+        new Guid("00AAC56B-CD44-11D0-8CC2-00C04FC295EE");
+
+    const uint WTD_UI_NONE = 2;
+    const uint WTD_REVOKE_WHOLECHAIN = 1;
+    const uint WTD_CHOICE_FILE = 1;
+    const uint WTD_STATEACTION_VERIFY = 1;
+    const uint WTD_STATEACTION_CLOSE = 2;
+    const uint WTD_REVOCATION_CHECK_CHAIN = 0x00000040;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct WINTRUST_FILE_INFO
+    {
+        public uint cbStruct;
+        public IntPtr pcwszFilePath;
+        public IntPtr hFile;
+        public IntPtr pgKnownSubject;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct WINTRUST_DATA
+    {
+        public uint cbStruct;
+        public IntPtr pPolicyCallbackData;
+        public IntPtr pSIPClientData;
+        public uint dwUIChoice;
+        public uint fdwRevocationChecks;
+        public uint dwUnionChoice;
+        public IntPtr pFile;
+        public uint dwStateAction;
+        public IntPtr hWVTStateData;
+        public IntPtr pwszURLReference;
+        public uint dwProvFlags;
+        public uint dwUIContext;
+        public IntPtr pSignatureSettings;
+    }
+
+    [DllImport("wintrust.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern uint WinVerifyTrust(IntPtr hwnd, ref Guid pgActionID, ref WINTRUST_DATA pWVTData);
+
+    /// <summary>Проверить Authenticode подпись файла (MSIX / EXE / DLL).
+    /// Возвращает: (ok — подпись валидна, thumbprint — SHA-1 signer'а в hex верхнем регистре или null).</summary>
+    public static (bool ok, string? thumbprint) VerifyMsix(string filePath)
+    {
+        // MSIX-пакеты подписываются как zip-container с CI.cat или встроенным AppxSignature.p7x.
+        // WinVerifyTrust корректно обрабатывает оба формата через тот же GENERIC_VERIFY_V2 action.
+        uint result = uint.MaxValue;
+        var fileInfo = new WINTRUST_FILE_INFO
+        {
+            cbStruct = (uint)Marshal.SizeOf<WINTRUST_FILE_INFO>(),
+            pcwszFilePath = Marshal.StringToHGlobalUni(filePath),
+            hFile = IntPtr.Zero,
+            pgKnownSubject = IntPtr.Zero,
+        };
+        IntPtr pFileInfo = IntPtr.Zero;
+        try
+        {
+            pFileInfo = Marshal.AllocHGlobal(Marshal.SizeOf<WINTRUST_FILE_INFO>());
+            Marshal.StructureToPtr(fileInfo, pFileInfo, false);
+
+            var wtd = new WINTRUST_DATA
+            {
+                cbStruct = (uint)Marshal.SizeOf<WINTRUST_DATA>(),
+                dwUIChoice = WTD_UI_NONE,
+                fdwRevocationChecks = WTD_REVOKE_WHOLECHAIN,
+                dwUnionChoice = WTD_CHOICE_FILE,
+                pFile = pFileInfo,
+                dwStateAction = WTD_STATEACTION_VERIFY,
+                dwProvFlags = WTD_REVOCATION_CHECK_CHAIN,
+            };
+            var action = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+            result = WinVerifyTrust(IntPtr.Zero, ref action, ref wtd);
+
+            // Обязательно закрыть state (иначе утечка crypto handles).
+            wtd.dwStateAction = WTD_STATEACTION_CLOSE;
+            WinVerifyTrust(IntPtr.Zero, ref action, ref wtd);
+        }
+        finally
+        {
+            if (fileInfo.pcwszFilePath != IntPtr.Zero) Marshal.FreeHGlobal(fileInfo.pcwszFilePath);
+            if (pFileInfo != IntPtr.Zero) Marshal.FreeHGlobal(pFileInfo);
+        }
+
+        bool ok = result == 0;
+        if (!ok)
+        {
+            App.LogStatic($"AuthenticodeVerifier: WinVerifyTrust HRESULT=0x{result:X8}");
+        }
+
+        // Извлечь thumbprint издателя через X509Certificate.CreateFromSignedFile.
+        // Работает для PE-файлов надёжно; для MSIX может выдать null (тогда fallback читаем через AppxSignature.p7x).
+        string? thumbprint = null;
+        try
+        {
+            var cert = X509Certificate.CreateFromSignedFile(filePath);
+            var cert2 = new X509Certificate2(cert);
+            thumbprint = cert2.Thumbprint;
+        }
+        catch (Exception ex)
+        {
+            App.LogStatic($"AuthenticodeVerifier: CreateFromSignedFile не сработал ({ex.GetType().Name}), thumbprint=null. " +
+                          "Для MSIX это ожидаемо на некоторых версиях .NET — проверка thumbprint пока пропущена.");
+        }
+
+        return (ok, thumbprint);
+    }
+}

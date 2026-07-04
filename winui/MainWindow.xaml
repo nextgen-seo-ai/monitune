@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="MonitorTune.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:MonitorTune"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="MonitorTune"
+    mc:Ignorable="d">
+    <Window.SystemBackdrop>
+        <DesktopAcrylicBackdrop/>
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="RootGrid"
+          Padding="14"
+          Background="Transparent"
+          KeyDown="OnRootKey"
+          IsTabStop="True"
+          RowDefinitions="Auto,*"
+          RowSpacing="10"
+          Opacity="0">
+        <Grid.RenderTransform>
+            <TranslateTransform x:Name="RootSlide" Y="14"/>
+        </Grid.RenderTransform>
+        <Grid.Resources>
+            <Storyboard x:Name="ShowAnim">
+                <DoubleAnimation Storyboard.TargetName="RootGrid"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.18">
+                    <DoubleAnimation.EasingFunction>
+                        <ExponentialEase EasingMode="EaseOut" Exponent="5"/>
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="RootSlide"
+                                 Storyboard.TargetProperty="Y"
+                                 From="14" To="0" Duration="0:0:0.22">
+                    <DoubleAnimation.EasingFunction>
+                        <ExponentialEase EasingMode="EaseOut" Exponent="5"/>
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+        </Grid.Resources>
+
+        <!-- Верхняя панель: компактный ToggleSwitch + кнопки -->
+        <Grid Grid.Row="0" ColumnSpacing="6" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+            <ToggleSwitch x:Name="SyncSwitch" Grid.Column="0"
+                          OnContent="" OffContent=""
+                          MinWidth="40"
+                          Toggled="OnSyncToggled"
+                          ToolTipService.ToolTip="Все мониторы синхронно"/>
+            <TextBlock Grid.Column="1"
+                       Text="Синхронно"
+                       FontSize="13"
+                       Opacity="0.85"
+                       VerticalAlignment="Center"/>
+            <Button Grid.Column="3"
+                    x:Name="RefreshBtn"
+                    Click="OnRefreshClick"
+                    ToolTipService.ToolTip="Переопределить мониторы">
+                <FontIcon Glyph="&#xE72C;"/>
+            </Button>
+            <Button Grid.Column="4"
+                    x:Name="NightBtn"
+                    Click="OnNightClick"
+                    ToolTipService.ToolTip="Ночной режим">
+                <FontIcon Glyph="&#xE708;"/>
+            </Button>
+            <Button Grid.Column="5"
+                    Click="OnSettingsClick"
+                    ToolTipService.ToolTip="Настройки">
+                <FontIcon Glyph="&#xE713;"/>
+            </Button>
+        </Grid>
+
+        <!-- Карточки мониторов -->
+        <StackPanel x:Name="CardsHost"
+                    Grid.Row="1"
+                    HorizontalAlignment="Stretch"
+                    Spacing="10"/>
+    </Grid>
+</Window>

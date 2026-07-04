@@ -1,0 +1,279 @@
+# MonitorTune release workflow.
+#
+# Триггер: push тега вида v1.2.3.4 (или v1.2.3, будет дополнен до .0 в manifest).
+#
+# Что делает:
+#  1. Восстанавливает MSIX signing PFX из base64 secret в файл на runner'е
+#  2. dotnet build с MSIX packaging + подписью
+#  3. Собирает Inno setup.exe (если ISCC установлен на runner'е — используем windows-latest с preinstalled Inno или chocolatey install)
+#  4. Считает SHA-256 MSIX-файла
+#  5. Генерирует latest.json manifest с полями (version, msix, setup, sha256, min_version, notes, mandatory, released)
+#  6. Подписывает latest.json Ed25519 приватником из secret → latest.json.sig
+#  7. Создаёт GitHub Release с 4 asset'ами (setup.exe, msix, latest.json, latest.json.sig)
+#  8. Удаляет PFX с runner'а после сборки
+#
+# Secrets required:
+#  - MSIX_SIGNING_PFX_BASE64   — base64-encoded PFX file
+#  - MSIX_SIGNING_PASSWORD     — passphrase к PFX
+#  - MANIFEST_ED25519_PRIVATE  — base64-encoded raw Ed25519 private key (32 bytes)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (e.g. 1.0.1.0), defaults to tag'
+        required: false
+
+permissions:
+  contents: write  # для создания Release
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -match '^v(\d+\.\d+\.\d+(\.\d+)?)$') {
+            $v = $Matches[1]
+          } elseif ("${{ github.event.inputs.version }}") {
+            $v = "${{ github.event.inputs.version }}"
+          } else {
+            Write-Error "Не могу определить версию — тег '$tag' не в формате vX.Y.Z"
+            exit 1
+          }
+          # Дополнить до 4 компонентов
+          $parts = $v.Split('.')
+          while ($parts.Length -lt 4) { $parts += '0' }
+          $v4 = $parts -join '.'
+          Write-Output "Version: $v4"
+          "version=$v4" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Restore MSIX signing PFX
+        id: pfx
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.MSIX_SIGNING_PFX_BASE64 }}
+        run: |
+          if (-not $env:PFX_B64) {
+            Write-Error "Secret MSIX_SIGNING_PFX_BASE64 не установлен"
+            exit 1
+          }
+          $pfxPath = Join-Path $env:RUNNER_TEMP "signing.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:PFX_B64))
+          Write-Output "PFX_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Output "PFX_PATH::$pfxPath"
+
+      - name: Update version in project
+        shell: pwsh
+        run: |
+          $manifestPath = "winui\Package.appxmanifest"
+          [xml]$doc = Get-Content $manifestPath
+          $ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
+          $ns.AddNamespace("d", "http://schemas.microsoft.com/appx/manifest/foundation/windows10")
+          $identity = $doc.SelectSingleNode("//d:Identity", $ns)
+          $identity.Version = "${{ steps.version.outputs.version }}"
+          $doc.Save((Resolve-Path $manifestPath))
+          Write-Output "Package.appxmanifest version → ${{ steps.version.outputs.version }}"
+
+      - name: Build MSIX
+        shell: pwsh
+        env:
+          PFX_PATH: ${{ steps.pfx.outputs.PFX_PATH }}
+          PFX_PWD: ${{ secrets.MSIX_SIGNING_PASSWORD }}
+        run: |
+          Set-Location winui
+          & msbuild MonitorTune.csproj `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:GenerateAppxPackageOnBuild=true `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxBundle=Never `
+            /p:MSIX_SIGNING_KEY_PATH="$env:PFX_PATH" `
+            /p:PackageCertificatePassword="$env:PFX_PWD" `
+            /verbosity:minimal /nologo
+          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+
+      - name: Locate MSIX artifact
+        id: msix
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          $msix = Get-ChildItem "winui\bin\AppPackages" -Recurse -Filter "MonitorTune*_x64.msix" |
+                  Sort-Object LastWriteTime -Descending |
+                  Select-Object -First 1
+          if (-not $msix) { throw "MSIX не найден" }
+          $dest = Join-Path $env:RUNNER_TEMP "MonitorTune-$ver-x64.msix"
+          Copy-Item $msix.FullName $dest
+          Write-Output "MSIX_PATH=$dest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Output "MSIX: $dest ($([math]::Round($msix.Length/1MB,2)) MB)"
+
+      - name: Compute SHA-256 of MSIX
+        id: sha
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash "${{ steps.msix.outputs.MSIX_PATH }}" -Algorithm SHA256
+          Write-Output "SHA256=$($hash.Hash)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Output "SHA-256: $($hash.Hash)"
+
+      - name: Setup Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          # ISCC теперь в PATH
+
+      - name: Build Setup.exe (Inno)
+        id: setup
+        shell: pwsh
+        env:
+          MSIX_PATH: ${{ steps.msix.outputs.MSIX_PATH }}
+        run: |
+          # Скопировать свежий MSIX в release/ под именем которое ждёт Setup.iss
+          Copy-Item $env:MSIX_PATH "release\MonitorTune_${{ steps.version.outputs.version }}_x64.msixbundle" -Force
+          # WindowsAppRuntime и cer должны уже лежать в release/ (закоммичены)
+          # Setup.iss обновить AppVersion (правим на лету)
+          $iss = Get-Content "release\Setup.iss" -Raw
+          $iss = $iss -replace '#define MyAppVersion "[^"]*"', ('#define MyAppVersion "${{ steps.version.outputs.version }}"')
+          $iss = $iss -replace 'MonitorTune_1\.0\.0\.0_x64\.msixbundle', "MonitorTune_${{ steps.version.outputs.version }}_x64.msixbundle"
+          Set-Content -Path "release\Setup.iss" -Value $iss -NoNewline
+
+          Push-Location release
+          & iscc /Q Setup.iss
+          Pop-Location
+
+          $setup = Get-Item "release\MonitorTune-Setup.exe"
+          $setupOut = Join-Path $env:RUNNER_TEMP "MonitorTune-Setup.exe"
+          Copy-Item $setup.FullName $setupOut
+          Write-Output "SETUP_PATH=$setupOut" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Output "setup.exe: $setupOut ($([math]::Round($setup.Length/1MB,2)) MB)"
+
+      - name: Generate manifest (latest.json)
+        id: manifest
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          $sha = "${{ steps.sha.outputs.SHA256 }}"
+          $released = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          $notes = "See https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          $manifest = [ordered]@{
+            version     = $ver
+            msix        = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/MonitorTune-$ver-x64.msix"
+            setup       = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/MonitorTune-Setup.exe"
+            sha256      = $sha
+            min_version = "1.0.0.0"
+            notes       = $notes
+            mandatory   = $false
+            released    = $released
+          }
+          $json = $manifest | ConvertTo-Json -Depth 3
+          $manifestPath = Join-Path $env:RUNNER_TEMP "latest.json"
+          # Записать БЕЗ BOM — иначе подпись будет считаться поверх BOM и клиент не сойдётся
+          [IO.File]::WriteAllText($manifestPath, $json, (New-Object System.Text.UTF8Encoding $false))
+          Write-Output "MANIFEST_PATH=$manifestPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Output "manifest:"
+          Get-Content $manifestPath
+
+      - name: Sign manifest with Ed25519
+        id: sign
+        shell: pwsh
+        env:
+          ED25519_PRIVATE_B64: ${{ secrets.MANIFEST_ED25519_PRIVATE }}
+          MANIFEST_PATH: ${{ steps.manifest.outputs.MANIFEST_PATH }}
+        run: |
+          if (-not $env:ED25519_PRIVATE_B64) {
+            Write-Error "Secret MANIFEST_ED25519_PRIVATE не установлен"
+            exit 1
+          }
+          $sigPath = "$env:MANIFEST_PATH.sig"
+
+          # Устанавливаем NSec.Cryptography через dotnet-script для подписи
+          dotnet tool install --global dotnet-script --no-cache 2>&1 | Out-Null
+
+          $signScript = @'
+          #r "nuget: NSec.Cryptography, 24.4.0"
+          using System;
+          using System.IO;
+          using NSec.Cryptography;
+
+          var args = Environment.GetCommandLineArgs();
+          // args: [dotnet-script, sign.csx, privB64, manifestPath, sigPath]
+          var privB64    = args[args.Length - 3];
+          var manifestPath = args[args.Length - 2];
+          var sigPath    = args[args.Length - 1];
+
+          var privRaw = Convert.FromBase64String(privB64);
+          var algo = SignatureAlgorithm.Ed25519;
+          using var key = Key.Import(algo, privRaw, KeyBlobFormat.RawPrivateKey);
+          var manifest = File.ReadAllBytes(manifestPath);
+          var sig = algo.Sign(key, manifest);
+          File.WriteAllText(sigPath, Convert.ToBase64String(sig));
+          Console.WriteLine($"Signed {manifestPath} → {sigPath}");
+          '@
+          $signScriptPath = Join-Path $env:RUNNER_TEMP "sign.csx"
+          Set-Content -Path $signScriptPath -Value $signScript
+
+          dotnet script $signScriptPath -- "$env:ED25519_PRIVATE_B64" "$env:MANIFEST_PATH" "$sigPath"
+          if ($LASTEXITCODE -ne 0) { throw "Signing failed" }
+
+          # Не логируем ключ, только факт что подпись создана
+          $sigLen = (Get-Item $sigPath).Length
+          Write-Output "Signature file: $sigPath ($sigLen bytes)"
+          Write-Output "SIG_PATH=$sigPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Wipe PFX from runner
+        if: always()
+        shell: pwsh
+        run: |
+          $p = "${{ steps.pfx.outputs.PFX_PATH }}"
+          if ($p -and (Test-Path $p)) {
+            # Best-effort wipe: overwrite random bytes перед delete
+            $len = (Get-Item $p).Length
+            $rand = New-Object byte[] $len
+            (New-Object System.Random).NextBytes($rand)
+            [IO.File]::WriteAllBytes($p, $rand)
+            Remove-Item $p -Force
+            Write-Output "PFX overwritten + deleted"
+          }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: MonitorTune ${{ steps.version.outputs.version }}
+          body: |
+            **MonitorTune ${{ steps.version.outputs.version }}**
+
+            Скачать: **MonitorTune-Setup.exe** (для установки на чистую машину).
+            Auto-update внутри приложения — читает `latest.json` из этого release.
+
+            SHA-256 MSIX: `${{ steps.sha.outputs.SHA256 }}`
+
+            Подпись `latest.json` — Ed25519, публичный ключ зашит в приложение.
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            ${{ steps.setup.outputs.SETUP_PATH }}
+            ${{ steps.msix.outputs.MSIX_PATH }}
+            ${{ steps.manifest.outputs.MANIFEST_PATH }}
+            ${{ steps.sign.outputs.SIG_PATH }}

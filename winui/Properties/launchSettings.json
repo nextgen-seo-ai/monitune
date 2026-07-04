@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MonitorTune (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MonitorTune (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

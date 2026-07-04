@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="MonitorTune.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Настройки">
+    <Window.SystemBackdrop><MicaBackdrop/></Window.SystemBackdrop>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Border Grid.Row="0" Padding="24,20,24,12">
+            <TextBlock Text="Настройки MonitorTune"
+                       FontSize="20" FontWeight="SemiBold"/>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="24,0,24,12" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="20">
+
+                <!-- Шаг изменения -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Шаг изменения яркости и контраста"
+                               FontSize="14" FontWeight="SemiBold"/>
+                    <TextBlock Text="На сколько процентов меняется значение при использовании горячих клавиш."
+                               FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                    <NumberBox x:Name="StepSizeBox"
+                               Minimum="1" Maximum="50"
+                               SmallChange="1" LargeChange="5"
+                               SpinButtonPlacementMode="Inline"
+                               MinWidth="200" HorizontalAlignment="Left"
+                               ValueChanged="OnStepChanged"/>
+                </StackPanel>
+
+                <!-- Ночной режим -->
+                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Ночной режим" FontSize="15" FontWeight="SemiBold"/>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" RowSpacing="10" RowDefinitions="Auto,Auto,Auto,Auto">
+                            <TextBlock Text="Яркость ночью"
+                                       Grid.Column="0" Grid.Row="0" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="NightBrightnessBox"
+                                       Grid.Column="1" Grid.Row="0"
+                                       Minimum="0" Maximum="100"
+                                       SmallChange="1" LargeChange="5"
+                                       SpinButtonPlacementMode="Inline"
+                                       MinWidth="180"
+                                       ValueChanged="OnNightValueChanged"/>
+
+                            <TextBlock Text="Контраст ночью"
+                                       Grid.Column="0" Grid.Row="1" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="NightContrastBox"
+                                       Grid.Column="1" Grid.Row="1"
+                                       Minimum="0" Maximum="100"
+                                       SmallChange="1" LargeChange="5"
+                                       SpinButtonPlacementMode="Inline"
+                                       MinWidth="180"
+                                       ValueChanged="OnNightValueChanged"/>
+
+                            <ToggleSwitch x:Name="ScheduleSwitch"
+                                          Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="2"
+                                          Header="Включать по расписанию"
+                                          Toggled="OnScheduleToggled"/>
+
+                            <Grid Grid.Column="0" Grid.Row="3" Grid.ColumnSpan="2"
+                                  ColumnDefinitions="Auto,*,Auto,*"
+                                  ColumnSpacing="8">
+                                <TextBlock Text="С" VerticalAlignment="Center" Grid.Column="0"/>
+                                <TimePicker x:Name="StartTimePicker"
+                                            Grid.Column="1"
+                                            ClockIdentifier="24HourClock"
+                                            MinWidth="160"
+                                            HorizontalAlignment="Stretch"
+                                            SelectedTimeChanged="OnTimeChanged"/>
+                                <TextBlock Text="До" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
+                                <TimePicker x:Name="EndTimePicker"
+                                            Grid.Column="3"
+                                            ClockIdentifier="24HourClock"
+                                            MinWidth="160"
+                                            HorizontalAlignment="Stretch"
+                                            SelectedTimeChanged="OnTimeChanged"/>
+                            </Grid>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Активность и сон -->
+                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Активность и сон" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Opacity="0.7">
+                            Эти настройки помогают, когда компьютер должен оставаться активным во время длительных задач или презентаций. Имитация активности также удерживает статус «в сети» в Teams, Slack и других мессенджерах.
+                        </TextBlock>
+
+                        <ToggleSwitch x:Name="PreventSleepSwitch"
+                                      Header="Не давать компьютеру и экрану засыпать"
+                                      Toggled="OnPreventSleepToggled"/>
+
+                        <ToggleSwitch x:Name="SimulateActivitySwitch"
+                                      Header="Имитировать активность пользователя"
+                                      Toggled="OnSimulateActivityToggled"/>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" x:Name="IntervalRow">
+                            <TextBlock Text="Интервал имитации, секунды"
+                                       Grid.Column="0" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="IntervalBox"
+                                       Grid.Column="1"
+                                       Minimum="5" Maximum="600"
+                                       SmallChange="5" LargeChange="30"
+                                       SpinButtonPlacementMode="Inline"
+                                       MinWidth="180"
+                                       ValueChanged="OnIntervalChanged"/>
+                        </Grid>
+
+                        <ToggleSwitch x:Name="VisibleMoveSwitch"
+                                      Header="Видимое движение курсора"
+                                      Toggled="OnVisibleMoveToggled"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.6">
+                            По умолчанию имитация невидима — это полноценное движение для системы и приложений, но курсор не сдвигается. Включите эту опцию, если хотите видеть подтверждение глазами: курсор будет смещаться на один пиксель и возвращаться.
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Обновления и диагностика -->
+                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Обновления и диагностика" FontSize="15" FontWeight="SemiBold"/>
+
+                        <ToggleSwitch x:Name="AutoUpdateSwitch"
+                                      Header="Автоматически проверять обновления при запуске"
+                                      Toggled="OnAutoUpdateToggled"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Проверить обновления сейчас" Click="CheckUpdatesClick"/>
+                            <TextBlock x:Name="UpdateStatusText" VerticalAlignment="Center"
+                                       FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Отправка диагностики (crash-репорты + анонимные метрики)"
+                                   FontSize="13" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                        <ToggleSwitch x:Name="TelemetrySwitch"
+                                      Header="Разрешить отправку анонимных crash-репортов"
+                                      Toggled="OnTelemetryToggled"/>
+                        <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.6">
+                            Крэши всегда пишутся локально в папку crashes рядом с логом. При включённой опции они дополнительно отправляются на указанный endpoint. Личные данные не собираются.
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="24,12,24,18">
+            <Button Content="Закрыть" Click="CloseClick"
+                    HorizontalAlignment="Right" MinWidth="100"/>
+        </Border>
+    </Grid>
+</Window>

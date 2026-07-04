@@ -1,0 +1,95 @@
+# ── SECRETS / SIGNING KEYS — критично ──────────────
+# Приватные ключи никогда не попадают в repo. Хранятся ТОЛЬКО в GitHub Secrets
+# и оффлайн-бэкапе. При случайном добавлении — репо считается скомпрометированным.
+*.pfx
+*.p12
+*.pvk
+*.key
+*.pem
+*.pk8
+*.snk
+manifest.sig
+ed25519.private
+ed25519.priv
+secrets/
+.env
+.env.*
+
+# ── Build outputs ──────────────────────────────────
+bin/
+obj/
+publish/
+out/
+AppPackages/
+BundleArtifacts/
+*.exe
+*.dll
+*.pdb
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.appxupload
+*.appxsym
+*.cer
+*.priv
+*.zip
+package/
+Package.StoreAssociation.xml
+
+# ── IDE ────────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+
+# ── .NET ───────────────────────────────────────────
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.tlog
+*.log
+
+# ── Test results ───────────────────────────────────
+TestResults/
+[Tt]est[Rr]esult*/
+
+# ── Runtime / user data ────────────────────────────
+LocalCache/
+crashes/
+updates/
+MonitorTune.log
+MonitorTune.log.old
+settings.json
+
+# ── Claude Code (personal session state) ───────────
+.claude/
+
+# ── Личные dev-нотки (не для public) ───────────────
+KNOWLEDGE.md
+
+# ── Старые попытки/бинарники в корне ───────────────
+# Активная разработка идёт только в winui/. Остальные исторические
+# каталоги не относятся к репозиторию.
+backup/
+net9/
+src/
+MonitorTune-Setup.zip
+MonitorTune.exe
+MonitorTuneWpf.exe
+
+# ── Node (на случай если появится) ─────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# ── OS ─────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

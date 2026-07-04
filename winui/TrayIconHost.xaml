@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="MonitorTune.TrayIconHost"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tb="using:H.NotifyIcon">
+
+    <tb:TaskbarIcon
+        x:Name="Tray"
+        ToolTipText="MonitorTune — яркость и контраст"
+        NoLeftClickDelay="True"
+        ContextMenuMode="SecondWindow"
+        LeftClickCommand="{x:Bind LeftClick}">
+        <tb:TaskbarIcon.IconSource>
+            <BitmapImage UriSource="ms-appx:///Assets/AppIcon.ico"/>
+        </tb:TaskbarIcon.IconSource>
+        <tb:TaskbarIcon.TrayToolTip>
+            <Border CornerRadius="6"
+                    BorderThickness="1"
+                    BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    Padding="14,10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Image Width="20" Height="20"
+                           Source="ms-appx:///Assets/Square44x44Logo.targetsize-24_altform-unplated.png"/>
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="13"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                               Text="MonitorTune — яркость и контраст"/>
+                </StackPanel>
+            </Border>
+        </tb:TaskbarIcon.TrayToolTip>
+        <tb:TaskbarIcon.ContextFlyout>
+            <MenuFlyout x:Name="TrayMenu">
+                <MenuFlyout.MenuFlyoutPresenterStyle>
+                    <Style TargetType="MenuFlyoutPresenter">
+                        <Setter Property="MinWidth" Value="340"/>
+                        <Setter Property="MaxWidth" Value="420"/>
+                    </Style>
+                </MenuFlyout.MenuFlyoutPresenterStyle>
+                <MenuFlyoutItem Text="Открыть панель" Click="OpenClick">
+                    <MenuFlyoutItem.Icon><SymbolIcon Symbol="OpenLocal"/></MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Переопределить мониторы" Click="RefreshClick">
+                    <MenuFlyoutItem.Icon><SymbolIcon Symbol="Refresh"/></MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem x:Name="UpdateMenuItem"
+                                Text="Обновить приложение"
+                                Visibility="Collapsed"
+                                Click="UpdateClick">
+                    <MenuFlyoutItem.Icon><SymbolIcon Symbol="Download"/></MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <ToggleMenuFlyoutItem x:Name="AutoStartItem" Text="Запускать с Windows" Click="AutoStartClick"/>
+                <MenuFlyoutItem Text="О программе" Click="AboutClick">
+                    <MenuFlyoutItem.Icon><SymbolIcon Symbol="Help"/></MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Выход" Click="ExitClick">
+                    <MenuFlyoutItem.Icon><SymbolIcon Symbol="Cancel"/></MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuFlyout>
+        </tb:TaskbarIcon.ContextFlyout>
+    </tb:TaskbarIcon>
+</UserControl>

@@ -42,7 +42,7 @@ body {
 .page {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 48px;
 }
 
 /* ── Header ─────────────────────────────────────── */
@@ -570,7 +570,7 @@ h1.hero-title em {
 
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 900px) {
-  .page { padding: 0 20px; }
+  .page { padding: 0 28px; }
   .hero {
     grid-template-columns: 1fr;
     padding: 56px 0 72px;
@@ -650,7 +650,7 @@ h1.hero-title em {
             <path d="M10 3v11m0 0l-4-4m4 4l4-4M4 17h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </a>
-        <a class="cta-secondary" href="https://github.com/nextgen-seo-ai/monitune/releases">
+        <a class="cta-secondary" href="https://github.com/nextgen-seo-ai/monitune/releases" target="_blank" rel="noopener">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path d="M2 8L6 12L12 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -659,7 +659,7 @@ h1.hero-title em {
       </div>
 
       <div class="cta-meta">
-        <span><b style="color:var(--paper-dim)">140 MB</b></span>
+        <span><b style="color:var(--paper-dim)" id="hero-version">свежая версия…</b></span>
         <span class="sep">·</span>
         <span>Windows 11 · x64</span>
         <span class="sep">·</span>
@@ -723,9 +723,9 @@ h1.hero-title em {
 
     <div class="file-card">
       <div>
-        <div class="file-name" id="file-name">MonitorTune-Setup-1.0.0.exe</div>
+        <div class="file-name" id="file-name">MonitorTune-Setup.exe</div>
         <div class="file-props">
-          <span><b>Размер</b> 140 MB</span>
+          <span><b>Версия</b> <span id="file-version">загрузка…</span></span>
           <span><b>Источник</b> GitHub Releases</span>
           <span class="hash" title="SHA-256 фиксируется в подписанном manifest.json на GitHub"><b>SHA-256</b> в подписанном манифесте</span>
         </div>
@@ -851,11 +851,10 @@ const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
   let dragging = false;
 
   function render() {
-    const raw = Math.round(value * 255 / 100);
     fill.style.height = value + '%';
     thumb.style.bottom = value + '%';
     valEl.innerHTML = value + '<span style="font-size:22px;color:var(--paper-dim);margin-left:2px">%</span>';
-    rawEl.textContent = raw + ' / 255';
+    if (rawEl) rawEl.textContent = value + '% подсветки';
     dimmer.setAttribute('aria-valuenow', value);
     // Subtle page-brightness echo: 65..108% range, contained so hero stays legible.
     const pageBrightness = 0.65 + (value / 100) * 0.43;
@@ -905,6 +904,22 @@ const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
       value = 100; render(); e.preventDefault();
     }
   });
+})();
+
+/* ── Fetch актуальной версии из latest.json на GitHub Release ─────── */
+(function () {
+  const url = 'https://github.com/nextgen-seo-ai/monitune/releases/latest/download/latest.json?_=' + Date.now();
+  fetch(url, { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (m) {
+      if (!m || !m.version) return;
+      // Показать в hero-meta и в file-card
+      const heroVer = document.getElementById('hero-version');
+      if (heroVer) heroVer.textContent = 'v' + m.version;
+      const fileVer = document.getElementById('file-version');
+      if (fileVer) fileVer.textContent = 'v' + m.version;
+    })
+    .catch(function () { /* offline / cors — оставляем placeholder */ });
 })();
 
 /* Кнопка Download ведёт напрямую на GitHub Release — иммутабельный тег + TLS + CDN.

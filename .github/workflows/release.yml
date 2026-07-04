@@ -106,6 +106,8 @@ jobs:
           & msbuild MonitorTune.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
+            /p:PlatformTarget=x64 `
+            /p:RuntimeIdentifier=win-x64 `
             /p:GenerateAppxPackageOnBuild=true `
             /p:UapAppxPackageBuildMode=SideloadOnly `
             /p:AppxBundle=Never `

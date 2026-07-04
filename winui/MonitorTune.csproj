@@ -6,6 +6,11 @@
     <RootNamespace>MonitorTune</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
+    <!-- RID должен строго совпадать с $(Platform), иначе ошибка
+         "RuntimeIdentifier platform 'win-x86' and PlatformTarget 'x64' must be compatible".
+         Логика: сначала PlatformTarget, потом Platform (fallback), затем ProcessArchitecture. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(PlatformTarget)' != ''">win-$(PlatformTarget.ToLower())</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' != '' and '$(Platform)' != 'AnyCPU'">win-$(Platform.ToLower())</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>

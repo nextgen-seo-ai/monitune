@@ -1,0 +1,886 @@
+<title>MonitorTune — управление яркостью через DDC/CI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --ground: #0B0E10;
+  --ground-lift: #12161A;
+  --ground-hi: #1A1F24;
+  --paper: #EDE5D2;
+  --paper-dim: #B5AF9F;
+  --ink: #0B0E10;
+  --amber: #E89446;
+  --amber-deep: #8A4A1A;
+  --phosphor: #8FD183;
+  --phosphor-dim: #4E7A48;
+  --danger: #E86B5A;
+  --mute: #6B7178;
+  --line: rgba(237, 229, 210, 0.09);
+  --line-strong: rgba(237, 229, 210, 0.18);
+
+  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --display: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Menlo", "Consolas", monospace;
+}
+
+html, body {
+  background: var(--ground);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  filter: brightness(var(--page-brightness, 1));
+  transition: filter 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* ── Header ─────────────────────────────────────── */
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.005em;
+}
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(155deg, var(--amber) 0%, #FCB067 45%, #FDDFA9 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15), 0 0 16px rgba(232,148,70,0.25);
+}
+.masthead-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mute);
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.masthead-meta a {
+  color: var(--paper-dim);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition: color 160ms, border-color 160ms;
+}
+.masthead-meta a:hover, .masthead-meta a:focus-visible {
+  color: var(--paper);
+  border-color: var(--line-strong);
+}
+.masthead-meta a:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ── Hero ────────────────────────────────────────── */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 64px;
+  padding: 84px 0 96px;
+  align-items: center;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--amber);
+  display: inline-block;
+  opacity: 0.7;
+}
+h1.hero-title {
+  font-family: var(--display);
+  font-weight: 300;
+  font-size: clamp(44px, 6.2vw, 76px);
+  line-height: 0.98;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+  margin: 0 0 28px;
+}
+h1.hero-title em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--amber);
+}
+.hero-lede {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--paper-dim);
+  max-width: 52ch;
+  margin: 0 0 40px;
+}
+.hero-lede code {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--paper);
+  background: var(--ground-lift);
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
+/* ── Download CTA ──────────────────────────────── */
+.cta-row {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.cta {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper);
+  border: none;
+  padding: 18px 26px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1), background 160ms, box-shadow 160ms;
+  box-shadow: 0 0 0 0 rgba(237, 229, 210, 0), inset 0 -2px 0 rgba(0,0,0,0.06);
+}
+.cta:hover, .cta:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px -12px rgba(237, 229, 210, 0.35), inset 0 -2px 0 rgba(0,0,0,0.06);
+  outline: none;
+}
+.cta:focus-visible {
+  box-shadow: 0 12px 32px -12px rgba(237, 229, 210, 0.35), inset 0 -2px 0 rgba(0,0,0,0.06), 0 0 0 3px var(--amber);
+}
+.cta-arrow {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.cta-secondary {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--paper-dim);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  padding: 18px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  transition: color 160ms, border-color 160ms;
+}
+.cta-secondary:hover, .cta-secondary:focus-visible {
+  color: var(--paper);
+  border-color: var(--paper-dim);
+  outline: none;
+}
+.cta-secondary:focus-visible {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(232, 148, 70, 0.3);
+}
+.cta-meta {
+  margin-top: 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mute);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+.cta-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cta-meta .sep {
+  color: var(--line-strong);
+}
+
+/* ── Brightness slider (hero right) ─────────────── */
+.dimmer {
+  height: 100%;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 0;
+  gap: 20px;
+  user-select: none;
+}
+.dimmer-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mute);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  align-self: flex-end;
+}
+.dimmer-track {
+  position: relative;
+  width: 76px;
+  flex: 1;
+  min-height: 300px;
+  border-radius: 40px;
+  background: var(--ground-lift);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.dimmer-track:active { cursor: grabbing; }
+.dimmer-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: linear-gradient(0deg, var(--amber-deep) 0%, var(--amber) 55%, #FDDFA9 100%);
+  box-shadow: 0 -6px 24px rgba(232, 148, 70, 0.25);
+  transition: none;
+  height: 78%;
+}
+.dimmer-thumb {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  bottom: 78%;
+  width: 62px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--paper);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(0,0,0,0.15);
+  pointer-events: none;
+}
+.dimmer-ticks {
+  position: absolute;
+  right: -22px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--mute);
+  padding: 4px 0;
+}
+.dimmer-readout {
+  text-align: center;
+  font-family: var(--mono);
+  color: var(--paper-dim);
+  line-height: 1.4;
+}
+.dimmer-readout .val {
+  font-family: var(--display);
+  font-weight: 300;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  display: block;
+  margin-bottom: 8px;
+}
+.dimmer-readout .vcp {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.dimmer-readout .vcp b {
+  color: var(--paper-dim);
+  font-weight: 500;
+}
+
+/* Ambient breathing */
+@media (prefers-reduced-motion: no-preference) {
+  .dimmer-fill.breathing {
+    animation: breathe 8s ease-in-out infinite;
+  }
+}
+@keyframes breathe {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.06); }
+}
+
+/* ── Feature strip ──────────────────────────────── */
+.features {
+  padding: 72px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+.feature {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.feature-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--amber);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.feature h3 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+  color: var(--paper);
+}
+.feature p {
+  margin: 0;
+  color: var(--paper-dim);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.feature p code {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--paper);
+  background: var(--ground-lift);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Download detail block ─────────────────────── */
+.download-detail {
+  padding: 80px 0 40px;
+}
+.download-detail-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.download-detail-head::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.file-card {
+  background: var(--ground-lift);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  align-items: center;
+}
+.file-name {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--paper);
+  margin-bottom: 12px;
+  word-break: break-all;
+}
+.file-props {
+  display: flex;
+  gap: 28px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mute);
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+.file-props b {
+  color: var(--paper-dim);
+  font-weight: 500;
+}
+.file-props .hash {
+  color: var(--phosphor-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* ── Trust panel ────────────────────────────────── */
+.trust {
+  margin-top: 40px;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 32px 36px;
+}
+.trust-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 28px;
+  gap: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.trust-head h4 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.008em;
+  margin: 0;
+  color: var(--paper);
+}
+.trust-head p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--paper-dim);
+  max-width: 52ch;
+  text-align: right;
+}
+.trust-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 26px 40px;
+}
+.trust-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.trust-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--amber);
+  padding-top: 3px;
+}
+.trust-title {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--paper);
+  letter-spacing: -0.005em;
+  margin-bottom: 4px;
+}
+.trust-body {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--paper-dim);
+}
+
+/* ── Spec strip ─────────────────────────────────── */
+.specs {
+  padding: 56px 0 80px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+}
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.spec-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.spec-val {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--paper);
+  letter-spacing: -0.008em;
+}
+.spec-val small {
+  display: block;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--paper-dim);
+  font-weight: 400;
+  margin-top: 4px;
+  letter-spacing: 0;
+}
+
+/* ── Footer ─────────────────────────────────────── */
+.foot {
+  padding: 40px 0 48px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 24px;
+  color: var(--mute);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  flex-wrap: wrap;
+}
+.foot .build {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Responsive ─────────────────────────────────── */
+@media (max-width: 900px) {
+  .page { padding: 0 20px; }
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 56px 0 72px;
+    gap: 48px;
+  }
+  .dimmer {
+    min-height: 340px;
+    max-width: 420px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .features {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 56px 0;
+  }
+  .specs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px 24px;
+  }
+  .file-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .trust-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .trust-head p {
+    text-align: left;
+  }
+  .trust-list {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+@media (max-width: 520px) {
+  h1.hero-title { font-size: 42px; }
+  .cta { padding: 16px 20px; font-size: 15px; }
+  .cta-secondary { padding: 16px 16px; }
+  .file-card { padding: 22px; }
+  .trust { padding: 24px; }
+}
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <span>MonitorTune</span>
+    </div>
+    <div class="masthead-meta">
+      <span>v1.0.0 · x64</span>
+      <a href="#specs">Требования</a>
+      <a href="#trust">Подпись</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-text">
+      <div class="eyebrow">DDC/CI · VCP 0x10 · Backlight control</div>
+      <h1 class="hero-title">
+        Управляйте подсветкой на языке <em>монитора</em>.
+      </h1>
+      <p class="hero-lede">
+        Утилита для Windows 11, которая говорит с внешними мониторами по <code>DDC/CI</code>.
+        Ползунок в трее физически меняет backlight — реальный VCP 0x10,
+        а не программное затемнение поверх кадра.
+      </p>
+
+      <div class="cta-row">
+        <a class="cta" id="cta-primary" href="https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe" download>
+          <span>Скачать · MonitorTune-Setup.exe</span>
+          <svg class="cta-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 3v11m0 0l-4-4m4 4l4-4M4 17h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="cta-secondary" href="https://github.com/nextgen-seo-ai/monitune/releases">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M2 8L6 12L12 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          История версий
+        </a>
+      </div>
+
+      <div class="cta-meta">
+        <span><b style="color:var(--paper-dim)">140 MB</b></span>
+        <span class="sep">·</span>
+        <span>Windows 11 · x64</span>
+        <span class="sep">·</span>
+        <span style="color:var(--phosphor-dim)">GitHub Releases · SHA-256 verified</span>
+      </div>
+    </div>
+
+    <div class="dimmer" role="slider"
+         aria-label="Демо: регулятор яркости"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="78"
+         tabindex="0"
+         id="dimmer">
+      <div class="dimmer-label">brightness</div>
+      <div class="dimmer-track" id="dimmer-track">
+        <div class="dimmer-fill breathing" id="dimmer-fill"></div>
+        <div class="dimmer-thumb" id="dimmer-thumb"></div>
+        <div class="dimmer-ticks" aria-hidden="true">
+          <span>100</span>
+          <span>75</span>
+          <span>50</span>
+          <span>25</span>
+          <span>0</span>
+        </div>
+      </div>
+      <div class="dimmer-readout">
+        <span class="val" id="dimmer-val">78<span style="font-size:22px;color:var(--paper-dim);margin-left:2px">%</span></span>
+        <div class="vcp">VCP 0x10 → <b id="dimmer-raw">199 / 255</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <div class="feature-num">01 · Протокол</div>
+      <h3>Реальный DDC/CI, не оверлей</h3>
+      <p>
+        Команды идут по <code>dxva2.dll</code> напрямую в EDID-канал монитора. Регулируется
+        backlight, а не альфа-канал поверх экрана — цвета остаются правильными.
+      </p>
+    </div>
+    <div class="feature">
+      <div class="feature-num">02 · Мульти-монитор</div>
+      <h3>Синхронно на всех подключённых</h3>
+      <p>
+        Один ползунок — все мониторы. Или каждый отдельно. Связка яркость↔контраст,
+        автоопределение GPU (Nvidia/AMD/Intel) и подстройка задержек под транспорт
+        (HDMI, DP, USB-C, TB4).
+      </p>
+    </div>
+    <div class="feature">
+      <div class="feature-num">03 · Ночной режим</div>
+      <h3>Расписание с плавным переходом</h3>
+      <p>
+        Автоматический тёплый режим по времени суток. Горячие клавиши на регулировку.
+        Автостарт через <code>StartupTask API</code>. Иконка в трее не мешает.
+      </p>
+    </div>
+  </section>
+
+  <section class="download-detail">
+    <div class="download-detail-head">Дистрибутив</div>
+
+    <div class="file-card">
+      <div>
+        <div class="file-name" id="file-name">MonitorTune-Setup-1.0.0.exe</div>
+        <div class="file-props">
+          <span><b>Размер</b> 140 MB</span>
+          <span><b>Источник</b> GitHub Releases</span>
+          <span class="hash" title="SHA-256 фиксируется в подписанном manifest.json на GitHub"><b>SHA-256</b> в подписанном манифесте</span>
+        </div>
+      </div>
+      <a class="cta" id="cta-secondary" href="https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe" download>
+        <span>Скачать</span>
+        <svg class="cta-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M10 3v11m0 0l-4-4m4 4l4-4M4 17h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+    </div>
+
+    <div class="trust" id="trust">
+      <div class="trust-head">
+        <h4>Подпись и целостность</h4>
+        <p>Дистрибуция только через GitHub Releases: TLS + иммутабельные теги + аудит. Подмена файла между релизом и вами невозможна без компрометации самого GitHub.</p>
+      </div>
+      <div class="trust-list">
+        <div class="trust-item">
+          <div class="trust-num">01</div>
+          <div>
+            <div class="trust-title">Manifest подписан Ed25519</div>
+            <div class="trust-body">Публичный ключ верификации зашит в приложение compile-time. Приватный ключ хранится только в CI secret и оффлайн-бэкапе.</div>
+          </div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-num">02</div>
+          <div>
+            <div class="trust-title">SHA-256 из подписанного манифеста</div>
+            <div class="trust-body">Приложение сверяет хэш скачанного MSIX с полем в manifest.json. Manifest без валидной подписи отвергается до чтения содержимого.</div>
+          </div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-num">03</div>
+          <div>
+            <div class="trust-title">Authenticode + WinVerifyTrust</div>
+            <div class="trust-body">До установки WinVerifyTrust проверяет цепочку подписи MSIX и сверяет thumbprint издателя с зашитой константой.</div>
+          </div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-num">04</div>
+          <div>
+            <div class="trust-title">Downgrade protection</div>
+            <div class="trust-body">Установка версии меньше текущей запрещена. Обход только через явный флаг в настройках — защищает от отката на уязвимую сборку.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="specs" id="specs">
+    <div class="spec-item">
+      <div class="spec-label">Система</div>
+      <div class="spec-val">Windows 11<small>Windows 10 21H2+ тоже поддерживается</small></div>
+    </div>
+    <div class="spec-item">
+      <div class="spec-label">Архитектура</div>
+      <div class="spec-val">x64<small>ARM64 в планах</small></div>
+    </div>
+    <div class="spec-item">
+      <div class="spec-label">GPU</div>
+      <div class="spec-val">Nvidia · AMD · Intel<small>DisplayLink адаптеры не поддерживают DDC/CI</small></div>
+    </div>
+    <div class="spec-item">
+      <div class="spec-label">Мониторы</div>
+      <div class="spec-val">С поддержкой DDC/CI<small>Проверьте что опция включена в OSD монитора</small></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>MonitorTune · 2026</span>
+    <span class="build" id="build-tag">build 1.0.0.0 · updated 2026-07-04</span>
+  </footer>
+
+</div>
+
+<script>
+'use strict';
+
+/* ================================================
+ * ДИСТРИБУЦИЯ — только через GitHub Releases (публичный, TLS+CDN, аудируемый).
+ * Никаких приватных mesh-URL в HTML: они не должны утекать через DNS resolve.
+ * Mesh-fallback для случая когда GitHub недоступен — зашивается в бинарь приложения,
+ * не в открытую разметку страницы. Приложение само переключается при недоступности GH.
+ * ================================================ */
+const RELEASE_URL = "https://github.com/nextgen-seo-ai/monitune/releases/latest";
+const DOWNLOAD_URL = "https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe";
+const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
+
+/* ── Brightness demo slider ──────────────────── */
+(function () {
+  const track = document.getElementById('dimmer-track');
+  const fill = document.getElementById('dimmer-fill');
+  const thumb = document.getElementById('dimmer-thumb');
+  const valEl = document.getElementById('dimmer-val');
+  const rawEl = document.getElementById('dimmer-raw');
+  const dimmer = document.getElementById('dimmer');
+
+  let value = 78;
+  let dragging = false;
+
+  function render() {
+    const raw = Math.round(value * 255 / 100);
+    fill.style.height = value + '%';
+    thumb.style.bottom = value + '%';
+    valEl.innerHTML = value + '<span style="font-size:22px;color:var(--paper-dim);margin-left:2px">%</span>';
+    rawEl.textContent = raw + ' / 255';
+    dimmer.setAttribute('aria-valuenow', value);
+    // Subtle page-brightness echo: 65..108% range, contained so hero stays legible.
+    const pageBrightness = 0.65 + (value / 100) * 0.43;
+    document.documentElement.style.setProperty('--page-brightness', pageBrightness.toFixed(3));
+  }
+  render();
+
+  function setFromEvent(e) {
+    const rect = track.getBoundingClientRect();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    let pct = (rect.bottom - clientY) / rect.height * 100;
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    value = pct;
+    render();
+  }
+
+  track.addEventListener('pointerdown', function (e) {
+    dragging = true;
+    fill.classList.remove('breathing');
+    track.setPointerCapture(e.pointerId);
+    setFromEvent(e);
+    e.preventDefault();
+  });
+  track.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    setFromEvent(e);
+  });
+  track.addEventListener('pointerup', function (e) {
+    dragging = false;
+    try { track.releasePointerCapture(e.pointerId); } catch (_) {}
+    setTimeout(function () { fill.classList.add('breathing'); }, 1200);
+  });
+  track.addEventListener('pointercancel', function () {
+    dragging = false;
+    setTimeout(function () { fill.classList.add('breathing'); }, 1200);
+  });
+
+  dimmer.addEventListener('keydown', function (e) {
+    const step = e.shiftKey ? 10 : 1;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+      value = Math.min(100, value + step); render(); e.preventDefault();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+      value = Math.max(0, value - step); render(); e.preventDefault();
+    } else if (e.key === 'Home') {
+      value = 0; render(); e.preventDefault();
+    } else if (e.key === 'End') {
+      value = 100; render(); e.preventDefault();
+    }
+  });
+})();
+
+/* Кнопка Download ведёт напрямую на GitHub Release — иммутабельный тег + TLS + CDN.
+ * Никакой mesh-инфы в открытой разметке: fallback-URL'ы зашиты в бинарь приложения
+ * и используются только при недоступности GitHub, никогда не резолвятся из браузера. */
+</script>

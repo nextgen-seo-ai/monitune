@@ -1,5 +1,7 @@
 # MonitorTune
 
+**[monitune.github.io](https://nextgen-seo-ai.github.io/monitune/)** · [Скачать последнюю версию](https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe)
+
 Утилита для Windows 11 — управление яркостью и контрастностью внешних мониторов через DDC/CI.
 
 Иконка-солнышко в области уведомлений. Клик — панель с ползунками для каждого подключённого монитора. Регулировка идёт по протоколу VESA MCCS через `dxva2.dll` (реальный VCP 0x10, а не программный overlay).

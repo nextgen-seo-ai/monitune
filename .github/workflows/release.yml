@@ -168,18 +168,40 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
 
           Write-Host "=== Build + MSIX Package ==="
-          & msbuild MonitorTune.csproj `
-            /p:Configuration=Release `
-            /p:Platform=x64 `
-            /p:PlatformTarget=x64 `
-            /p:RuntimeIdentifier=win-x64 `
-            /p:GenerateAppxPackageOnBuild=true `
-            /p:UapAppxPackageBuildMode=SideloadOnly `
-            /p:AppxBundle=Never `
-            /p:MSIX_SIGNING_KEY_PATH="$env:PFX_PATH" `
-            /p:PackageCertificatePassword="$env:PFX_PWD" `
-            /verbosity:minimal /nologo
-          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+          # Пароль PFX может содержать спецсимволы (!, &, |, <, ^) которые ломают
+          # парсинг msbuild command-line — MSB1006 "Property is not valid. Switch: c!".
+          # Решение — response file: msbuild читает параметры из файла ЛИТЕРАЛЬНО,
+          # никакого cmdline-парсинга не происходит. Файл живёт в RUNNER_TEMP (стирается
+          # после job) и удаляется явно после build даже при ошибке.
+          $rspPath = Join-Path $env:RUNNER_TEMP "msbuild-signing.rsp"
+          # Одна строка = один параметр. Значения не quote'им — msbuild умеет читать до \n.
+          $rspLines = @(
+            "/p:Configuration=Release"
+            "/p:Platform=x64"
+            "/p:PlatformTarget=x64"
+            "/p:RuntimeIdentifier=win-x64"
+            "/p:GenerateAppxPackageOnBuild=true"
+            "/p:UapAppxPackageBuildMode=SideloadOnly"
+            "/p:AppxBundle=Never"
+            "/p:MSIX_SIGNING_KEY_PATH=$env:PFX_PATH"
+            "/p:PackageCertificatePassword=$env:PFX_PWD"
+          )
+          Set-Content -Path $rspPath -Value $rspLines -Encoding UTF8 -NoNewline:$false
+          try {
+            $rspArg = '@' + $rspPath
+            & msbuild MonitorTune.csproj $rspArg /verbosity:minimal /nologo
+            $exitCode = $LASTEXITCODE
+          } finally {
+            # Стереть response file — содержит пароль в plain text.
+            if (Test-Path $rspPath) {
+              $len = (Get-Item $rspPath).Length
+              $rand = New-Object byte[] $len
+              (New-Object System.Random).NextBytes($rand)
+              [IO.File]::WriteAllBytes($rspPath, $rand)
+              Remove-Item $rspPath -Force
+            }
+          }
+          if ($exitCode -ne 0) { throw "Build failed (exit $exitCode)" }
 
       - name: Locate MSIX artifact
         id: msix

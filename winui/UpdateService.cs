@@ -203,11 +203,28 @@ public static class UpdateService
     {
         try
         {
-            var localCache = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "updates");
+            // ВАЖНО: PackageManager.AddPackageAsync работает как система (не как MSIX-приложение)
+            // и НЕ применяет FS virtualization sandbox'а. Если сохранить через
+            // Environment.SpecialFolder.LocalApplicationData → .NET спрячет файл в
+            // Packages\<PFN>\LocalCache\Local\, а deployment service будет искать по
+            // виртуальному C:\Users\<u>\AppData\Local\updates\ → 0x80073CF0 + 0x80070003.
+            // Правильно — физический sandbox path через ApplicationData.Current.LocalCacheFolder.Path,
+            // deployment API умеет его читать через package identity.
+            string localCache;
+            try
+            {
+                localCache = Path.Combine(Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path, "updates");
+            }
+            catch (InvalidOperationException)
+            {
+                // Fallback для unpackaged сборки (не MSIX — например dotnet run локально).
+                localCache = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "updates");
+            }
             Directory.CreateDirectory(localCache);
             var msixPath = Path.Combine(localCache, $"MonitorTune-{info.Version}.msix");
+            App.LogStatic($"UpdateService: MSIX path → {msixPath}");
 
             App.LogStatic($"UpdateService: скачиваю {RedactUrl(info.MsixUrl)}");
             using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) })

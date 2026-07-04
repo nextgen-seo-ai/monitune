@@ -99,24 +99,44 @@ public static class AuthenticodeVerifier
         }
 
         bool ok = result == 0;
-        if (!ok)
-        {
-            App.LogStatic($"AuthenticodeVerifier: WinVerifyTrust HRESULT=0x{result:X8}");
-        }
+        App.LogStatic($"AuthenticodeVerifier: WinVerifyTrust HRESULT=0x{result:X8} ({(ok ? "OK" : "FAIL")})");
 
-        // Извлечь thumbprint издателя через X509Certificate.CreateFromSignedFile.
-        // Работает для PE-файлов надёжно; для MSIX может выдать null (тогда fallback читаем через AppxSignature.p7x).
+        // Извлечь thumbprint издателя. Для MSIX подпись лежит НЕ как PE WIN_CERTIFICATE,
+        // а в отдельном файле /AppxSignature.p7x внутри ZIP-контейнера MSIX.
+        // Формат: 4-байтовая сигнатура "PKCX" (magic) + сырое PKCS#7 (SignedCms).
+        // CreateFromSignedFile работает для PE, но на MSIX возвращает мусор или CryptographicException.
+        // Правильный путь: распаковать ZIP → взять AppxSignature.p7x → отбросить magic → SignedCms.Decode → Signer[0].Certificate.
         string? thumbprint = null;
         try
         {
-            var cert = X509Certificate.CreateFromSignedFile(filePath);
-            var cert2 = new X509Certificate2(cert);
-            thumbprint = cert2.Thumbprint;
+            using var zip = System.IO.Compression.ZipFile.OpenRead(filePath);
+            var sigEntry = zip.GetEntry("AppxSignature.p7x");
+            if (sigEntry != null)
+            {
+                using var s = sigEntry.Open();
+                using var ms = new System.IO.MemoryStream();
+                s.CopyTo(ms);
+                var raw = ms.ToArray();
+                if (raw.Length > 4)
+                {
+                    // Пропускаем 4-байтовый "PKCX" magic — дальше сырое PKCS#7.
+                    var pkcs7 = raw.AsSpan(4).ToArray();
+                    var cms = new System.Security.Cryptography.Pkcs.SignedCms();
+                    cms.Decode(pkcs7);
+                    if (cms.SignerInfos.Count > 0)
+                    {
+                        thumbprint = cms.SignerInfos[0].Certificate?.Thumbprint;
+                    }
+                }
+            }
+            else
+            {
+                App.LogStatic("AuthenticodeVerifier: AppxSignature.p7x нет в MSIX-архиве");
+            }
         }
         catch (Exception ex)
         {
-            App.LogStatic($"AuthenticodeVerifier: CreateFromSignedFile не сработал ({ex.GetType().Name}), thumbprint=null. " +
-                          "Для MSIX это ожидаемо на некоторых версиях .NET — проверка thumbprint пока пропущена.");
+            App.LogStatic($"AuthenticodeVerifier: AppxSignature.p7x парсинг ex: {ex.GetType().Name} {ex.Message}");
         }
 
         return (ok, thumbprint);

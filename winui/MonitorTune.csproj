@@ -81,6 +81,8 @@
     <PackageReference Include="System.Management" Version="9.0.0" />
     <!-- Ed25519 подпись manifest'а auto-update. Проверенный порт libsodium. -->
     <PackageReference Include="NSec.Cryptography" Version="24.4.0" />
+    <!-- PKCS#7 SignedCms для парсинга MSIX AppxSignature.p7x → thumbprint издателя. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.0" />
   </ItemGroup>
 
   <!--

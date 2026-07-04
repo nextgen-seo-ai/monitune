@@ -321,6 +321,9 @@ jobs:
           # Устанавливаем NSec.Cryptography через dotnet-script для подписи
           dotnet tool install --global dotnet-script --no-cache 2>&1 | Out-Null
 
+          # ВНИМАНИЕ: dotnet-script (csx) не поддерживает C# 8 using-declaration
+          # (`using var key = ...`) на top-level — падает с CS1002/CS0103.
+          # Пишем классический using-блок или try/finally.
           $signScript = @'
           #r "nuget: NSec.Cryptography, 24.4.0"
           using System;
@@ -335,11 +338,15 @@ jobs:
 
           var privRaw = Convert.FromBase64String(privB64);
           var algo = SignatureAlgorithm.Ed25519;
-          using var key = Key.Import(algo, privRaw, KeyBlobFormat.RawPrivateKey);
-          var manifest = File.ReadAllBytes(manifestPath);
-          var sig = algo.Sign(key, manifest);
-          File.WriteAllText(sigPath, Convert.ToBase64String(sig));
-          Console.WriteLine($"Signed {manifestPath} → {sigPath}");
+          var key = Key.Import(algo, privRaw, KeyBlobFormat.RawPrivateKey);
+          try {
+              var manifest = File.ReadAllBytes(manifestPath);
+              var sig = algo.Sign(key, manifest);
+              File.WriteAllText(sigPath, Convert.ToBase64String(sig));
+              Console.WriteLine($"Signed {manifestPath} -> {sigPath}");
+          } finally {
+              key.Dispose();
+          }
           '@
           $signScriptPath = Join-Path $env:RUNNER_TEMP "sign.csx"
           Set-Content -Path $signScriptPath -Value $signScript

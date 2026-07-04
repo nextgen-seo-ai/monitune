@@ -145,20 +145,27 @@ using NSec.Cryptography;
 using System;
 using System.IO;
 
+// dotnet-script (csx) не поддерживает `using var` на top-level — используем try/finally.
 var algo = SignatureAlgorithm.Ed25519;
-using var key = Key.Create(algo, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+var key = Key.Create(algo, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+try
+{
+    var privRaw = key.Export(KeyBlobFormat.RawPrivateKey);
+    var pubRaw = key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
 
-var privRaw = key.Export(KeyBlobFormat.RawPrivateKey);
-var pubRaw = key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+    File.WriteAllText("private.b64", Convert.ToBase64String(privRaw));
+    File.WriteAllText("public.b64", Convert.ToBase64String(pubRaw));
 
-File.WriteAllText("private.b64", Convert.ToBase64String(privRaw));
-File.WriteAllText("public.b64", Convert.ToBase64String(pubRaw));
-
-Console.WriteLine("PRIVATE (для GH Secret MANIFEST_ED25519_PRIVATE):");
-Console.WriteLine(Convert.ToBase64String(privRaw));
-Console.WriteLine();
-Console.WriteLine("PUBLIC (для константы в UpdateService.cs):");
-Console.WriteLine(Convert.ToBase64String(pubRaw));
+    Console.WriteLine("PRIVATE (для GH Secret MANIFEST_ED25519_PRIVATE):");
+    Console.WriteLine(Convert.ToBase64String(privRaw));
+    Console.WriteLine();
+    Console.WriteLine("PUBLIC (для константы в UpdateService.cs):");
+    Console.WriteLine(Convert.ToBase64String(pubRaw));
+}
+finally
+{
+    key.Dispose();
+}
 ```
 
 Запусти:

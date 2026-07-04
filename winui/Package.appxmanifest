@@ -8,12 +8,14 @@
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   IgnorableNamespaces="uap rescap desktop">
 
-  <!-- ВНИМАНИЕ для публикации в Microsoft Store:
-       Name и Publisher должны совпадать с тем, что Partner Center выдаст
-       после резервации имени MonitorTune. Заменить ОБА значения. -->
+  <!-- Publisher должен побайтно совпадать с Subject нашего code signing cert:
+       CN=MonitorTune, O=nextgen-seo-ai, C=RU (см. release/GENERATE-KEYS.md).
+       Иначе signtool падает "APPX0107: certificate not valid for signing" +
+       "APPX0105: Cannot import the key file".
+       Для Store — Partner Center выдаст другой Publisher; заменить и здесь. -->
   <Identity
     Name="MonitorTune"
-    Publisher="CN=MonitorTune Publisher"
+    Publisher="CN=MonitorTune, O=nextgen-seo-ai, C=RU"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="BF0AE75C-4C77-4E02-BCA4-59DDCC7DE641" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>

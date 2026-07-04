@@ -93,7 +93,7 @@ openssl pkey -in public.pem -pubin -text -noout   # публичный в HEX
 ```powershell
 # На защищённой машине, offline
 $cert = New-SelfSignedCertificate `
-    -Type Custom -Subject "CN=MonitorTune, O=nextgen-seo-ai" `
+    -Type CodeSigningCert -Subject "CN=MonitorTune, O=nextgen-seo-ai, C=RU" `
     -KeyUsage DigitalSignature -FriendlyName "MonitorTune Signing" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")

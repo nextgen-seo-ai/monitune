@@ -32,6 +32,7 @@ BundleArtifacts/
 *.appxupload
 *.appxsym
 *.cer
+!release/MonitorTune.cer
 *.priv
 *.zip
 package/

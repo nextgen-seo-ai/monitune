@@ -73,7 +73,7 @@ public static class UpdateService
     /// При ротации cert — добавляется новый thumbprint, старый оставляется на dual-sign период.</summary>
     static readonly string[] AllowedSignerThumbprints = new[]
     {
-        "C4A5E37BBA76DE1BBEFDECF98A63E4A2E4E4370F",
+        "31D6929559D15ACD3AC47D4E28A7C8DC3CF405B8",
     };
 
     // ── Точки входа ──────────────────────────────────────────────────

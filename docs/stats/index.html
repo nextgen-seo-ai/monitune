@@ -111,6 +111,11 @@ h1.stats-title {
   text-transform: uppercase;
   margin: 0 0 20px;
 }
+h1.stats-title em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--amber);
+}
 .stats-lede {
   font-size: 16px;
   color: var(--paper-dim);
@@ -319,7 +324,7 @@ h1.stats-title {
 
   <section class="hero">
     <div class="eyebrow">Статистика · GitHub API · live</div>
-    <h1 class="stats-title">Как приложение <em id="live-em" style="color:var(--amber);font-weight:400">живёт</em>.</h1>
+    <h1 class="stats-title">Актуальная версия <em id="live-em">…</em></h1>
     <p class="stats-lede">
       Данные из GitHub Releases API — количество скачиваний по каждой версии,
       auto-updates старых клиентов, обновления манифеста. Ничего не собирается на бэкенде,
@@ -500,9 +505,9 @@ async function main() {
     document.getElementById('last-fetched').textContent =
       'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-    // Меняем "живёт" на реальный номер актуальной версии в hero
+    // Проставить актуальную версию в заголовок
     const liveEm = document.getElementById('live-em');
-    if (liveEm && current.tag_name) liveEm.textContent = 'до ' + current.tag_name;
+    if (liveEm && current.tag_name) liveEm.textContent = current.tag_name;
 
   } catch (e) {
     const box = document.getElementById('table-wrap');

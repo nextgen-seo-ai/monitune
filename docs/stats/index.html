@@ -1,0 +1,518 @@
+<title>MonitorTune — статистика</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --ground: #0B0E10;
+  --ground-lift: #12161A;
+  --ground-hi: #1A1F24;
+  --paper: #EDE5D2;
+  --paper-dim: #B5AF9F;
+  --ink: #0B0E10;
+  --amber: #FFB800;
+  --amber-deep: #6E3C00;
+  --phosphor: #8FD183;
+  --phosphor-dim: #4E7A48;
+  --danger: #E86B5A;
+  --mute: #6B7178;
+  --line: rgba(237, 229, 210, 0.09);
+  --line-strong: rgba(237, 229, 210, 0.18);
+
+  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --display: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Menlo", "Consolas", monospace;
+}
+
+html, body {
+  background: var(--ground);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 72px;
+}
+
+/* ── Header ─────────────────────────────────────── */
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.005em;
+  color: var(--paper);
+  text-decoration: none;
+}
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(255, 184, 0, 0.4));
+}
+.masthead-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mute);
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.masthead-meta a {
+  color: var(--paper-dim);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition: color 160ms, border-color 160ms;
+}
+.masthead-meta a:hover { color: var(--paper); border-color: var(--line-strong); }
+
+/* ── Hero ────────────────────────────────────────── */
+.hero {
+  padding: 72px 0 48px;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--amber);
+  opacity: 0.7;
+}
+h1.stats-title {
+  font-family: var(--display);
+  font-weight: 200;
+  font-size: clamp(36px, 5.4vw, 60px);
+  line-height: 1.05;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+}
+.stats-lede {
+  font-size: 16px;
+  color: var(--paper-dim);
+  max-width: 60ch;
+  margin: 0 0 12px;
+}
+.stats-note {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mute);
+  letter-spacing: 0.02em;
+}
+.stats-note a { color: var(--paper-dim); text-decoration: none; border-bottom: 1px dotted var(--line-strong); }
+
+/* ── Big metrics ─────────────────────────────────── */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  padding: 40px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.metric-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.metric-value {
+  font-family: var(--display);
+  font-weight: 200;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+.metric-value em {
+  font-style: normal;
+  color: var(--amber);
+}
+.metric-value.small { font-size: 24px; font-weight: 300; }
+.metric-sub {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--paper-dim);
+  margin-top: 6px;
+}
+
+/* ── Section head ────────────────────────────────── */
+.section-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin: 56px 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.section-head::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ── Version table ───────────────────────────────── */
+.version-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  background: var(--ground-lift);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.version-table th {
+  text-align: left;
+  padding: 14px 18px;
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mute);
+  border-bottom: 1px solid var(--line);
+  background: var(--ground);
+}
+.version-table td {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--paper-dim);
+}
+.version-table tr:last-child td { border-bottom: none; }
+.version-table td.ver {
+  font-weight: 500;
+  color: var(--paper);
+}
+.version-table td.date {
+  color: var(--mute);
+  font-size: 12px;
+}
+.version-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.version-table td.num.hi {
+  color: var(--amber);
+}
+.version-table td.num.zero {
+  color: var(--line-strong);
+}
+
+/* ── Distribution bars ───────────────────────────── */
+.dist-list { display: grid; gap: 8px; }
+.dist-item {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.dist-item .dist-label { color: var(--paper-dim); }
+.dist-item .dist-bar {
+  height: 10px;
+  background: var(--ground-lift);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+.dist-item .dist-bar-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--amber-deep), var(--amber));
+  border-radius: 5px;
+}
+.dist-item .dist-count {
+  text-align: right;
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Loading / error ─────────────────────────────── */
+.loading, .err {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mute);
+  padding: 24px 0;
+  text-align: center;
+}
+.err { color: var(--danger); }
+
+/* ── Footer ─────────────────────────────────────── */
+.foot {
+  padding: 40px 0 48px;
+  margin-top: 72px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 24px;
+  color: var(--mute);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  flex-wrap: wrap;
+}
+.foot a { color: var(--paper-dim); text-decoration: none; border-bottom: 1px dotted var(--line-strong); }
+#last-fetched { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 900px) {
+  .page { padding: 0 32px; }
+  .metrics { grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .metric-value { font-size: 34px; }
+  .version-table th, .version-table td { padding: 10px 12px; font-size: 11px; }
+}
+@media (max-width: 520px) {
+  h1.stats-title { font-size: 32px; }
+  .metrics { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <a class="brand" href="../">
+      <img class="brand-mark" alt="MonitorTune" src="../logo.png" onerror="this.style.display='none'">
+      <span>MonitorTune</span>
+    </a>
+    <div class="masthead-meta">
+      <a href="../">На главную</a>
+      <a href="https://github.com/nextgen-seo-ai/monitune" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">Статистика · GitHub API · live</div>
+    <h1 class="stats-title">Как приложение <em id="live-em" style="color:var(--amber);font-weight:400">живёт</em>.</h1>
+    <p class="stats-lede">
+      Данные из GitHub Releases API — количество скачиваний по каждой версии,
+      auto-updates старых клиентов, обновления манифеста. Ничего не собирается на бэкенде,
+      никакой телеметрии — только публичная информация из релизов.
+    </p>
+    <p class="stats-note">
+      Обновляется в момент открытия страницы. Кэшируется на 60 секунд в браузере.
+      <a href="https://api.github.com/repos/nextgen-seo-ai/monitune/releases" target="_blank" rel="noopener">Смотреть raw API →</a>
+    </p>
+  </section>
+
+  <section class="metrics" id="metrics">
+    <div class="metric-item">
+      <div class="metric-label">Установок</div>
+      <div class="metric-value" id="m-installs">—</div>
+      <div class="metric-sub">setup.exe с сайта</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label">Auto-updates</div>
+      <div class="metric-value" id="m-updates">—</div>
+      <div class="metric-sub">MSIX старым клиентам</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label">Проверок</div>
+      <div class="metric-value" id="m-checks">—</div>
+      <div class="metric-sub">latest.json обращений</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-label">Актуальная</div>
+      <div class="metric-value small" id="m-current">—</div>
+      <div class="metric-sub" id="m-current-date">—</div>
+    </div>
+  </section>
+
+  <div class="section-head">Версии</div>
+  <div id="table-wrap">
+    <div class="loading" id="loading">Загрузка данных из GitHub API…</div>
+  </div>
+
+  <div class="section-head" id="dist-head" style="display:none">Распределение установок по версиям</div>
+  <div id="dist-wrap"></div>
+
+  <footer class="foot">
+    <span>MonitorTune · <a href="../">на главную</a> · <a href="https://github.com/nextgen-seo-ai/monitune/releases" target="_blank" rel="noopener">все релизы</a></span>
+    <span id="last-fetched"></span>
+  </footer>
+
+</div>
+
+<script>
+'use strict';
+
+const REPO = 'nextgen-seo-ai/monitune';
+const CACHE_KEY = 'mt_stats_cache_v1';
+const CACHE_TTL_MS = 60_000;   // 60 сек — экономим GitHub API rate limit (60 req/hour/IP)
+
+function fmtNumber(n) {
+  if (n == null) return '—';
+  if (n < 1000) return String(n);
+  return n.toLocaleString('ru-RU').replace(/,/g, ' ');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (_) { return iso.substring(0, 10); }
+}
+
+async function loadReleases() {
+  // Cache check
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+    if (cached && (Date.now() - cached.ts) < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  } catch (_) {}
+
+  const url = 'https://api.github.com/repos/' + REPO + '/releases?per_page=50';
+  const resp = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' }});
+  if (!resp.ok) {
+    const err = new Error('GitHub API HTTP ' + resp.status);
+    err.status = resp.status;
+    throw err;
+  }
+  const data = await resp.json();
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+  return data;
+}
+
+function assetCount(assets, name) {
+  if (!Array.isArray(assets)) return 0;
+  const a = assets.find(x => x.name === name);
+  return a ? (a.download_count || 0) : 0;
+}
+
+function assetMsixCount(assets) {
+  if (!Array.isArray(assets)) return 0;
+  const a = assets.find(x => /-x64\.msix$/.test(x.name));
+  return a ? (a.download_count || 0) : 0;
+}
+
+function renderTable(releases) {
+  const rows = releases.map(r => {
+    const setup = assetCount(r.assets, 'MonitorTune-Setup.exe');
+    const msix = assetMsixCount(r.assets);
+    const manifest = assetCount(r.assets, 'latest.json');
+    return `<tr>
+      <td class="ver">${r.tag_name}</td>
+      <td class="date">${fmtDate(r.published_at)}</td>
+      <td class="num ${setup > 0 ? 'hi' : 'zero'}">${fmtNumber(setup)}</td>
+      <td class="num">${fmtNumber(msix)}</td>
+      <td class="num">${fmtNumber(manifest)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table class="version-table">
+    <thead>
+      <tr>
+        <th>Версия</th><th>Выпущена</th>
+        <th style="text-align:right">setup.exe</th>
+        <th style="text-align:right">.msix (auto-update)</th>
+        <th style="text-align:right">latest.json</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderDistribution(releases) {
+  // Сколько инсталляций пришло на каждую версию (setup.exe download_count)
+  const items = releases
+    .map(r => ({ ver: r.tag_name, count: assetCount(r.assets, 'MonitorTune-Setup.exe') }))
+    .filter(x => x.count > 0);
+  if (!items.length) return '';
+  const max = Math.max(...items.map(x => x.count));
+  return items.map(x => {
+    const pct = Math.max(2, Math.round(x.count / max * 100));
+    return `<div class="dist-item">
+      <div class="dist-label">${x.ver}</div>
+      <div class="dist-bar"><div class="dist-bar-fill" style="width:${pct}%"></div></div>
+      <div class="dist-count">${fmtNumber(x.count)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function main() {
+  try {
+    const releases = await loadReleases();
+    if (!releases.length) {
+      document.getElementById('loading').textContent = 'Релизов пока нет.';
+      return;
+    }
+
+    // Aggregate metrics
+    const totalInstalls = releases.reduce((s, r) => s + assetCount(r.assets, 'MonitorTune-Setup.exe'), 0);
+    const totalUpdates = releases.reduce((s, r) => s + assetMsixCount(r.assets), 0);
+    const totalChecks = releases.reduce((s, r) => s + assetCount(r.assets, 'latest.json'), 0);
+    const current = releases[0]; // latest (releases sorted by published desc)
+
+    document.getElementById('m-installs').textContent = fmtNumber(totalInstalls);
+    document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
+    document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
+    document.getElementById('m-current').textContent = current.tag_name;
+    document.getElementById('m-current-date').textContent = 'выпущена ' + fmtDate(current.published_at);
+
+    // Table
+    document.getElementById('table-wrap').innerHTML = renderTable(releases);
+
+    // Distribution bar chart
+    const dist = renderDistribution(releases);
+    if (dist) {
+      document.getElementById('dist-head').style.display = 'flex';
+      document.getElementById('dist-wrap').innerHTML = '<div class="dist-list">' + dist + '</div>';
+    }
+
+    document.getElementById('last-fetched').textContent =
+      'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+    // Меняем "живёт" на реальный номер актуальной версии в hero
+    const liveEm = document.getElementById('live-em');
+    if (liveEm && current.tag_name) liveEm.textContent = 'до ' + current.tag_name;
+
+  } catch (e) {
+    const box = document.getElementById('table-wrap');
+    if (e.status === 403) {
+      box.innerHTML = '<div class="err">GitHub API rate limit — попробуйте через минуту. Без токена доступ ограничен 60 запросами в час на IP.</div>';
+    } else {
+      box.innerHTML = '<div class="err">Не удалось загрузить: ' + (e.message || 'ошибка сети') + '</div>';
+    }
+  }
+}
+
+main();
+</script>

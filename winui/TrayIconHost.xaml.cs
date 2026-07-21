@@ -66,8 +66,11 @@ public sealed partial class TrayIconHost : UserControl
 
     static Windows.Data.Xml.Dom.XmlDocument BuildUpdateToast(UpdateService.UpdateInfo info)
     {
+        // launch на root = клик по всему toast body тоже запускает обновление
+        // (не только по кнопке "Обновить"). activationType=foreground → приложение поднимается
+        // и Program.Main → mainInstance.Activated → App.HandleRedirectedActivation.
         var xml = $@"
-<toast>
+<toast activationType=""foreground"" launch=""action=update"">
   <visual><binding template=""ToastGeneric"">
     <text>Доступно обновление MoniTune {System.Security.SecurityElement.Escape(info.Version)}</text>
     <text>{System.Security.SecurityElement.Escape(info.Notes ?? "Нажмите чтобы установить обновление")}</text>

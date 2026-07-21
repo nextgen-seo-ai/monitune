@@ -10,7 +10,7 @@ public partial class App : Application
     MainWindow? _window;
     TrayWindow? _trayWindow;
     DdcManager? _ddc;
-    DispatcherQueue? _ui;
+    static DispatcherQueue? _ui;
     NightMode? _night;
     HotkeyService? _hotkeys;
     KeepAwakeService? _keepAwake;
@@ -197,6 +197,51 @@ public partial class App : Application
         }
 
         L("OnLaunched done");
+
+        // Первый запуск — приложение могло быть поднято кликом по toast:
+        // проверим activation args и обработаем сразу.
+        try
+        {
+            var firstActivation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+            HandleRedirectedActivation(firstActivation);
+        }
+        catch (Exception ex) { L("first activation check ex: " + ex.Message); }
+    }
+
+    /// <summary>Единая точка обработки activation events — вызывается из Program.Main
+    /// на каждую активацию (первый запуск + все redirected toast/protocol activations).</summary>
+    public static void HandleRedirectedActivation(Microsoft.Windows.AppLifecycle.AppActivationArguments args)
+    {
+        if (args == null) return;
+        try
+        {
+            LogStatic($"Activation kind={args.Kind}");
+            if (args.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.ToastNotification)
+            {
+                var toastArgs = args.Data as Windows.ApplicationModel.Activation.ToastNotificationActivatedEventArgs;
+                var arg = toastArgs?.Argument ?? "";
+                LogStatic($"Toast activation arg='{arg}'");
+                if (arg.Contains("action=update"))
+                {
+                    _ui?.TryEnqueue(async () =>
+                    {
+                        try
+                        {
+                            LogStatic("Toast update: forcing check + install");
+                            var info = await UpdateService.CheckAsync();
+                            if (info != null)
+                            {
+                                LogStatic($"Toast update: installing {info.Version}");
+                                await UpdateService.DownloadAndInstallAsync(info);
+                            }
+                            else LogStatic("Toast update: CheckAsync returned null — nothing to install");
+                        }
+                        catch (Exception ex) { LogStatic("Toast install ex: " + ex); }
+                    });
+                }
+            }
+        }
+        catch (Exception ex) { LogStatic("HandleRedirectedActivation ex: " + ex); }
     }
 
     void InitDone()

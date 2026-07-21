@@ -36,6 +36,10 @@
          CLI-сборка multi-arch упирается в bug Microsoft.Windows.SDK.BuildTools.MSIX 1.7+. -->
     <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
     <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <!-- Отключаем автогенерируемый Main из App.g.i.cs — используем свой Program.cs
+         с single-instance логикой (AppInstance.FindOrRegisterForKey), иначе клик по
+         toast поднимает второй instance приложения и его activation args теряются. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

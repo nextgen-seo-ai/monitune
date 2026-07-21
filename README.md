@@ -1,4 +1,4 @@
-# MonitorTune
+# MoniTune
 
 **[monitune.github.io](https://nextgen-seo-ai.github.io/monitune/)** · [Скачать последнюю версию](https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe)
 

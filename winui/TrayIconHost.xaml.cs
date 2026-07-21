@@ -69,7 +69,7 @@ public sealed partial class TrayIconHost : UserControl
         var xml = $@"
 <toast>
   <visual><binding template=""ToastGeneric"">
-    <text>Доступно обновление MonitorTune {System.Security.SecurityElement.Escape(info.Version)}</text>
+    <text>Доступно обновление MoniTune {System.Security.SecurityElement.Escape(info.Version)}</text>
     <text>{System.Security.SecurityElement.Escape(info.Notes ?? "Нажмите чтобы установить обновление")}</text>
   </binding></visual>
   <actions>

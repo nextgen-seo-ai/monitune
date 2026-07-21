@@ -14,7 +14,7 @@
                 <Image Width="48" Height="48"
                        Source="ms-appx:///Assets/Square150x150Logo.scale-200.png"/>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="MonitorTune"
+                    <TextBlock Text="MoniTune"
                                FontSize="22" FontWeight="SemiBold"/>
                     <TextBlock x:Name="VersionText"
                                FontSize="12" Opacity="0.7"/>

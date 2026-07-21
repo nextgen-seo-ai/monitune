@@ -98,7 +98,7 @@ public static class UpdateService
         if (overrides != null) sources.AddRange(overrides);
 
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("MonitorTune/" + CurrentVersion() + " (WinUI3)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("MoniTune/" + CurrentVersion() + " (WinUI3)");
         // GitHub CDN Fastly кэширует /releases/latest/download/* редиректы на 5-10 минут.
         // Cache-bust query + Cache-Control гарантируют свежий ответ на каждой проверке.
         http.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true, NoStore = true };
@@ -462,7 +462,7 @@ public static class UpdateService
             string xml = $@"<?xml version=""1.0"" encoding=""UTF-16""?>
 <Task version=""1.2"" xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">
   <RegistrationInfo>
-    <Description>MonitorTune one-shot post-update restart</Description>
+    <Description>MoniTune one-shot post-update restart</Description>
     <URI>\{RestartTaskName}</URI>
   </RegistrationInfo>
   <Triggers>

@@ -7,7 +7,7 @@
 
     <tb:TaskbarIcon
         x:Name="Tray"
-        ToolTipText="MonitorTune — яркость и контраст"
+        ToolTipText="MoniTune — яркость и контраст"
         NoLeftClickDelay="True"
         ContextMenuMode="SecondWindow"
         LeftClickCommand="{x:Bind LeftClick}">
@@ -26,7 +26,7 @@
                     <TextBlock VerticalAlignment="Center"
                                FontSize="13"
                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                               Text="MonitorTune — яркость и контраст"/>
+                               Text="MoniTune — яркость и контраст"/>
                 </StackPanel>
             </Border>
         </tb:TaskbarIcon.TrayToolTip>

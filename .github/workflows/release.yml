@@ -378,9 +378,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: MonitorTune ${{ steps.version.outputs.version }}
+          name: MoniTune ${{ steps.version.outputs.version }}
           body: |
-            **MonitorTune ${{ steps.version.outputs.version }}**
+            **MoniTune ${{ steps.version.outputs.version }}**
 
             Скачать: **MonitorTune-Setup.exe** (для установки на чистую машину).
             Auto-update внутри приложения — читает `latest.json` из этого release.

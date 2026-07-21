@@ -88,6 +88,15 @@ public class DdcManager
     // Win32 error code classifiers для DDC/CI операций.
     // ERROR_INVALID_HANDLE — handle умер (WM_DISPLAYCHANGE между enumerate и write).
     public static bool IsInvalidHandleError(int err) => err == 6 /*ERROR_INVALID_HANDLE*/ || err == 1400 /*ERROR_INVALID_WINDOW_HANDLE*/;
+    // Расширенный набор — handle возможно stale после disconnect/reconnect монитора.
+    // ERROR_GEN_FAILURE и MCA_INTERNAL_ERROR НЕ явные "invalid handle", но по факту
+    // случаются когда deployment service забыл про handle (кабель дёрнули).
+    // Пропускать эти коды через reopen дешевле чем ждать пока юзер нажмёт "Обновить".
+    public static bool IsPossiblyStaleHandle(int err) =>
+        IsInvalidHandleError(err) ||
+        err == 31 /*ERROR_GEN_FAILURE — часто после hotplug*/ ||
+        err == unchecked((int)0xC026258A) /*ERROR_GRAPHICS_MCA_INTERNAL_ERROR*/ ||
+        err == unchecked((int)0xC0262580) /*ERROR_GRAPHICS_DDCCI_INVALID_DEVICE*/;
     // Terminal — retry бесполезен, монитор физически не может это.
     public static bool IsTerminalDdcError(int err) =>
         err == 5      /*ERROR_ACCESS_DENIED — OSD locked / HDCP*/ ||
@@ -213,18 +222,19 @@ public class DdcManager
             }
             var arr = new Native.PHYSICAL_MONITOR[num];
             // GetPhysicalMonitorsFromHMONITOR может отдать hPhysicalMonitor=0 в первые секунды cold start
-            // (особенно Nvidia+Samsung по DP). Retry 3 раза с задержкой 300мс.
+            // (особенно Nvidia+Samsung по DP). Retry 5 раз с задержкой 400мс (было 3×300ms — Samsung по DP не успевает).
             bool gotHandle = false;
-            for (int r = 0; r < 3; r++)
+            for (int r = 0; r < 5; r++)
             {
                 bool ok = Native.GetPhysicalMonitorsFromHMONITOR(handles[i], num, arr);
                 if (ok && arr[0].hPhysicalMonitor != IntPtr.Zero) { gotHandle = true; break; }
                 int err = Marshal.GetLastWin32Error();
-                Log?.Invoke($"  Enumerate retry {r + 1}/3 для {devices[i]}: ok={ok} handle=0x{arr[0].hPhysicalMonitor.ToInt64():X} err={err}");
-                Thread.Sleep(300);
+                Log?.Invoke($"  Enumerate retry {r + 1}/5 для {devices[i]}: ok={ok} handle=0x{arr[0].hPhysicalMonitor.ToInt64():X} err={err}");
+                Thread.Sleep(400);
             }
+            Log?.Invoke($"  Enumerate result {devices[i]}: handle=0x{arr[0].hPhysicalMonitor.ToInt64():X} gotHandle={gotHandle}");
             if (!gotHandle)
-                Log?.Invoke($"  Enumerate: не удалось получить physical handle для {devices[i]} — DDC/CI будет недоступен");
+                Log?.Invoke($"  Enumerate: не удалось получить physical handle для {devices[i]} — SafeCaps попробует переоткрыть позже");
             string? token = MonitorToken(devices[i]);
             string? deviceId = MonitorDeviceId(devices[i]);
             EdidReader.EdidInfo? edid = deviceId != null ? EdidReader.Read(deviceId) : null;
@@ -345,26 +355,44 @@ public class DdcManager
     }
     void InitialReadAll()
     {
-        // Snapshot под _monitorsLock — Refresh может в любой момент сделать Clear+Enumerate.
-        // Без этого foreach падает с CollectionModifiedException (BLOCKER 3 из reviewer'а).
         MonInfo[] snap;
         lock (_monitorsLock) { snap = Monitors.ToArray(); }
+        Log?.Invoke($"InitialReadAll: {snap.Length} monitor(s), параллельно");
+        // Параллельная обработка: каждый монитор в своём Task. LG не ждёт Samsung.
+        // Все SafeCaps/SafeRead уже сериализованы per-monitor через OpLock,
+        // а InitDone мы вызываем ПОСЛЕ завершения всех Tasks.
+        var tasks = new List<System.Threading.Tasks.Task>();
         foreach (var m in snap)
         {
-            if (m.Disposed) continue;
+            var mon = m;
+            tasks.Add(System.Threading.Tasks.Task.Run(() => InitOne(mon)));
+        }
+        try { System.Threading.Tasks.Task.WaitAll(tasks.ToArray(), 30000); }
+        catch (Exception ex) { Log?.Invoke("InitialReadAll WaitAll ex: " + ex.Message); }
+        Log?.Invoke("InitialReadAll: done");
+        OnInitDone?.Invoke();
+    }
+
+    void InitOne(MonInfo m)
+    {
+        try
+        {
+            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed at entry"); return; }
+            Log?.Invoke($"  [{m.ShortId}]: start (handle=0x{m.Handle.ToInt64():X} DdcSup={m.DdcSupported} DL={m.DisplayLink} PermUnav={m.DdcPermanentlyUnavailable})");
             if (m.DisplayLink || !m.DdcSupported || m.DdcPermanentlyUnavailable)
             {
                 m.HasBrightness = false; m.HasContrast = false; m.DdcSupported = false;
                 Log?.Invoke($"  [{m.ShortId}]: DDC/CI недоступно — пропускаем caps");
-                continue;
+                return;
             }
             string? caps = SafeCaps(m);
-            if (m.Disposed) continue;
+            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed after SafeCaps"); return; }
             if (caps != null)
             {
                 var codes = TopLevelVcp(caps.ToUpperInvariant());
                 m.HasBrightness = codes.Contains("10");
                 m.HasContrast = codes.Contains("12");
+                Log?.Invoke($"  [{m.ShortId}]: caps OK — codes={codes.Count} HasB={m.HasBrightness} HasC={m.HasContrast}");
                 if (codes.Count < 5)
                 {
                     m.ProbablyFreeSync = true;
@@ -374,22 +402,24 @@ public class DdcManager
             else
             {
                 m.HasBrightness = true; m.HasContrast = true;
-                Log?.Invoke($"  [{m.ShortId}]: capabilities string недоступна — предполагаем что Set работает");
+                Log?.Invoke($"  [{m.ShortId}]: caps=null — fallback: пробуем читать VCP напрямую");
             }
-            if (m.Disposed) continue;
+            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed after caps parse"); return; }
             if (m.HasBrightness)
             {
                 int b = SafeRead(m, VCP_BRIGHTNESS); m.Brightness = b;
+                Log?.Invoke($"  [{m.ShortId}]: brightness read = {b}");
                 if (b >= 0 && !m.Disposed) Raise(IndexOf(m), VCP_BRIGHTNESS, b);
             }
-            if (m.Disposed) continue;
+            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed before contrast"); return; }
             if (m.HasContrast)
             {
                 int c = SafeRead(m, VCP_CONTRAST); m.Contrast = c;
+                Log?.Invoke($"  [{m.ShortId}]: contrast read = {c}");
                 if (c >= 0 && !m.Disposed) Raise(IndexOf(m), VCP_CONTRAST, c);
             }
         }
-        OnInitDone?.Invoke();
+        catch (Exception ex) { Log?.Invoke($"InitOne [{m.ShortId}] ex: {ex.Message}"); }
     }
 
     /// <summary>Прочитать caps под per-monitor lock, с try/catch. Возвращает null при ошибке.</summary>
@@ -401,9 +431,23 @@ public class DdcManager
             {
                 if (m.Disposed) return null;
                 if (m.DisplayLink || !m.DdcSupported || m.DdcPermanentlyUnavailable) return null;
-                if (m.Handle == IntPtr.Zero && !TryReopenHandle(m)) return null;
+                if (m.Handle == IntPtr.Zero && !TryReopenHandle(m))
+                {
+                    Log?.Invoke($"SafeCaps [{m.ShortId}]: handle=0 и reopen fail — caps skip");
+                    return null;
+                }
                 RespectSuspension(m);
-                return ReadCapsRetry(m.Handle, 8);
+                // Caps может отсутствовать у монитора вовсе (Samsung LU28R55 и др. —
+                // VCP отвечает, а CapabilitiesRequestAndCapabilitiesReply нет).
+                // 4 попытки хватит: если поддерживает — отвечает с 1-2й.
+                // Reopen+retry не делаем — при handle stale отработает SafeRead.
+                var caps = ReadCapsRetry(m.Handle, 4);
+                if (caps == null)
+                {
+                    int err = Marshal.GetLastWin32Error();
+                    Log?.Invoke($"SafeCaps [{m.ShortId}]: caps=null (err=0x{err:X}) — вероятно caps unsupported");
+                }
+                return caps;
             }
         }
         catch (Exception ex) { Log?.Invoke($"SafeCaps '{m.Name}' ex: {ex.Message}"); return null; }
@@ -417,19 +461,30 @@ public class DdcManager
             {
                 if (m.Disposed) return -1;
                 if (m.DisplayLink || !m.DdcSupported || m.DdcPermanentlyUnavailable) return -1;
-                if (m.Handle == IntPtr.Zero && !TryReopenHandle(m)) return -1;
+                if (m.Handle == IntPtr.Zero && !TryReopenHandle(m))
+                {
+                    Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: handle=0 и reopen fail");
+                    return -1;
+                }
                 RespectSuspension(m);
-                int val = ReadRetry(m.Handle, vcp, 4);
-                // ReadRetry вернул -1 → возможно handle умер. Обнулим для reopen на следующем вызове.
+                // Для Samsung + DP базовые 4 попытки часто мало (капризный DDC/CI-канал).
+                int attempts = (m.WriteGapMs >= 200) ? 6 : 4;
+                int val = ReadRetry(m.Handle, vcp, attempts);
                 if (val < 0)
                 {
                     int err = Marshal.GetLastWin32Error();
                     m.LastErrorCode = err;
-                    if (IsInvalidHandleError(err))
+                    // Всегда пробуем переоткрыть handle если чтение упало — Samsung DP
+                    // часто отдаёт разные err codes (0, 87, 1F, ...) на битый DDC.
+                    // Один re-open + повторный длинный retry намного лучше молчаливого -1.
+                    Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: fail (err=0x{err:X}) — reopen+retry");
+                    try { Native.DestroyPhysicalMonitor(m.Handle); } catch { }
+                    m.Handle = IntPtr.Zero;
+                    if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
                     {
-                        try { Native.DestroyPhysicalMonitor(m.Handle); } catch { }
-                        m.Handle = IntPtr.Zero;
-                        Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X} INVALID_HANDLE — handle обнулён");
+                        val = ReadRetry(m.Handle, vcp, attempts);
+                        if (val >= 0) Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: retry after reopen ok val={val}");
+                        else Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: reopen ok но чтение всё равно fail");
                     }
                 }
                 return val;
@@ -539,11 +594,26 @@ public class DdcManager
                 m.LastErrorCode = lastErr;
                 if (!ok)
                 {
-                    if (IsInvalidHandleError(lastErr))
+                    if (IsPossiblyStaleHandle(lastErr))
                     {
+                        // Handle stale (INVALID_HANDLE или GEN_FAILURE / MCA_INTERNAL — часто после
+                        // hotplug монитора). Обнуляем + СРАЗУ пытаемся переоткрыть и повторить write,
+                        // чтобы юзеру не пришлось руками жать "Обновить".
                         try { Native.DestroyPhysicalMonitor(m.Handle); } catch { }
                         m.Handle = IntPtr.Zero;
-                        Log?.Invoke($"SafeWrite [{m.ShortId}]: handle invalidated, will reopen next call");
+                        Log?.Invoke($"SafeWrite [{m.ShortId}]: handle stale (err=0x{lastErr:X}) — reopening");
+                        if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
+                        {
+                            bool retryOk = Native.SetVCPFeature(m.Handle, vcp, raw);
+                            int retryErr = retryOk ? 0 : Marshal.GetLastWin32Error();
+                            Log?.Invoke($"SafeWrite [{m.ShortId}] retry after reopen ok={retryOk}{(retryOk ? "" : $" err=0x{retryErr:X}")}");
+                            if (retryOk)
+                            {
+                                if (vcp == VCP_BRIGHTNESS) m.Brightness = val; else m.Contrast = val;
+                                return true;
+                            }
+                            // Если и после reopen fail — не крутимся в цикле, возвращаем false
+                        }
                         return false;
                     }
                     if (lastErr == 5 /*ACCESS_DENIED — OSD Lock / HDCP*/)
@@ -670,7 +740,9 @@ public class DdcManager
 
     string? ReadCapsRetry(IntPtr h, int attempts)
     {
-        int[] waits = { 150, 300, 500, 800, 1000, 1100, 1100, 1100, 1100, 1100, 1100, 1100 };
+        // Caps обычно отвечает на 1-2 попытку у поддерживающих мониторов.
+        // Если не ответил за 4 попытки (~3.7 сек) — вероятно unsupported, дальше нет смысла ждать.
+        int[] waits = { 200, 500, 1000, 2000, 2000, 2000, 2000, 2000 };
         for (int i = 0; i < attempts; i++)
         {
             uint len = 0;

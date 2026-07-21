@@ -464,25 +464,50 @@ public sealed partial class MainWindow : Window
         var hwnd = WindowNative.GetWindowHandle(this);
         var aw = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
 
+        // BUG1 fix: первая FitToContent на скрытом окне возвращает крошечный
+        // DesiredSize (WinUI не даёт полноценный layout pass на невидимом Content).
+        // Из-за этого первый Show показывает сжатое окно. Стратегия:
+        // (1) грубая подгонка сейчас — для стартовой позиции;
+        // (2) Show + Activate;
+        // (3) через DispatcherQueue после первого real layout — точная подгонка + coord fix.
         FitToContent();
 
         var display = DisplayArea.GetFromPoint(new Windows.Graphics.PointInt32(iconCenterX, iconTop), DisplayAreaFallback.Primary);
         var wa = display.WorkArea;
 
-        var size = aw.Size;
-        int w = size.Width;
-        int h = size.Height;
-        int left = iconCenterX - w / 2;
-        int top = iconTop - h - 8;
-        if (left < wa.X + 4) left = wa.X + 4;
-        if (left + w > wa.X + wa.Width - 4) left = wa.X + wa.Width - w - 4;
-        if (top < wa.Y + 4) top = wa.Y + 4;
-        if (top + h > wa.Y + wa.Height - 4) top = wa.Y + wa.Height - h - 4;
-        aw.Move(new Windows.Graphics.PointInt32(left, top));
+        void Position()
+        {
+            var size = aw.Size;
+            int w = size.Width;
+            int h = size.Height;
+            int left = iconCenterX - w / 2;
+            int top = iconTop - h - 8;
+            if (left < wa.X + 4) left = wa.X + 4;
+            if (left + w > wa.X + wa.Width - 4) left = wa.X + wa.Width - w - 4;
+            if (top < wa.Y + 4) top = wa.Y + 4;
+            if (top + h > wa.Y + wa.Height - 4) top = wa.Y + wa.Height - h - 4;
+            aw.Move(new Windows.Graphics.PointInt32(left, top));
+        }
+
+        Position();
         aw.Show();
         Activate();
         ForceToTop(hwnd);
         _focusPoll?.Start();
+
+        // BUG1 fix: после того как окно фактически показано, layout пройдёт
+        // на реальном визуальном дереве. Пересчитываем размер и позицию.
+        // TryEnqueue Low priority — выполнится после первого рендер-фрейма.
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            try
+            {
+                FitToContent();
+                Position();
+            }
+            catch (Exception ex) { App.LogStatic("ShowNearIcon post-show refit ex: " + ex.Message); }
+        });
+
         // Плавное появление: opacity 0→1 + slide-up
         ShowAnim.Begin();
     }

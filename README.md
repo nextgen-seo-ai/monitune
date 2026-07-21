@@ -22,9 +22,8 @@
 Скачать `MonitorTune-Setup.exe` из [последнего release](../../releases/latest) и запустить.
 
 Инсталлятор:
-1. Устанавливает Windows App Runtime (зависимость .NET 9 WinUI 3)
-2. Импортирует сертификат подписи в TrustedRoot и TrustedPeople локального компьютера
-3. Ставит MSIX-пакет
+1. Импортирует сертификат подписи в TrustedRoot и TrustedPeople локального компьютера
+2. Ставит MSIX-пакет (self-contained — включает .NET 9 и WinAppSDK внутри)
 
 **Требования:**
 - Windows 11 (или Windows 10 21H2+)

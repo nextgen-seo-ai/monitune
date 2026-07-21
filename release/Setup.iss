@@ -34,6 +34,12 @@ ShowLanguageDialog=no
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
+[InstallDelete]
+; Убрать orphan WindowsAppRuntime-x64.exe (~100 MB) при апгрейде с v1.0.11-v1.0.13 →
+; в v1.0.14+ этот bundle больше не нужен (MSIX self-contained), но старый инсталлер
+; оставил его в Program Files\MonitorTune. Экономим ~100 MB диска юзера.
+Type: files; Name: "{app}\WindowsAppRuntime-x64.exe"
+
 [Files]
 Source: "MonitorTune_1.0.0.0_x64.msixbundle"; DestDir: "{app}"; Flags: ignoreversion
 Source: "MonitorTune.cer";                    DestDir: "{app}"; Flags: ignoreversion

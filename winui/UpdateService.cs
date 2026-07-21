@@ -88,7 +88,7 @@ public static class UpdateService
         });
     }
 
-    public static async Task<UpdateInfo?> CheckAsync()
+    public static async Task<UpdateInfo?> CheckAsync(bool fireEvent = true)
     {
         // Порядок источников: сначала GitHub, потом compile-time mesh fallback.
         var sources = new List<string> { GitHubManifestUrl };
@@ -204,7 +204,12 @@ public static class UpdateService
             Mandatory = manifest.mandatory,
         };
         App.LogStatic($"UpdateService: доступно обновление {info.Version}");
-        try { UpdateAvailable?.Invoke(info); } catch (Exception ex) { App.LogStatic("UpdateAvailable handler ex: " + ex); }
+        // fireEvent=false когда вызвано из InstallPendingUpdate (toast click) —
+        // иначе UpdateAvailable → ShowUpdateAvailable → второй toast во время установки.
+        if (fireEvent)
+        {
+            try { UpdateAvailable?.Invoke(info); } catch (Exception ex) { App.LogStatic("UpdateAvailable handler ex: " + ex); }
+        }
         return info;
     }
 
@@ -236,7 +241,11 @@ public static class UpdateService
             App.LogStatic($"UpdateService: MSIX path → {msixPath}");
 
             App.LogStatic($"UpdateService: скачиваю {RedactUrl(info.MsixUrl)}");
-            using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) })
+            // Timeout = InfiniteTimeSpan т.к. self-contained MSIX ~86 MB,
+            // на 1 Mbps качается ~12 мин — HttpClient.Timeout охватывает весь lifetime
+            // включая streaming, 10-мин потолок обрывал download у юзеров с медленным
+            // интернетом. Idle-timeout на уровне stream reads даёт лучший контроль.
+            using (var http = new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan })
             using (var resp = await http.GetAsync(info.MsixUrl, HttpCompletionOption.ResponseHeadersRead))
             {
                 if (!resp.IsSuccessStatusCode)
@@ -245,17 +254,33 @@ public static class UpdateService
                     return false;
                 }
                 long total = resp.Content.Headers.ContentLength ?? -1;
+                App.LogStatic($"UpdateService: total size {(total > 0 ? total / 1024 / 1024 + " MB" : "unknown")}");
                 using var fs = new FileStream(msixPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 using var stream = await resp.Content.ReadAsStreamAsync();
                 var buf = new byte[64 * 1024];
                 long read = 0;
                 int n;
+                int lastLoggedPercent = -1;
+                var lastReadAt = Environment.TickCount;
                 while ((n = await stream.ReadAsync(buf)) > 0)
                 {
                     await fs.WriteAsync(buf.AsMemory(0, n));
                     read += n;
-                    if (total > 0) progress?.Report((double)read / total);
+                    lastReadAt = Environment.TickCount;
+                    if (total > 0)
+                    {
+                        double frac = (double)read / total;
+                        progress?.Report(frac);
+                        int percent = (int)(frac * 100);
+                        // Лог каждые 10% — иначе спам при 86 MB.
+                        if (percent / 10 != lastLoggedPercent / 10)
+                        {
+                            App.LogStatic($"UpdateService: download {percent}% ({read / 1024 / 1024} MB)");
+                            lastLoggedPercent = percent;
+                        }
+                    }
                 }
+                App.LogStatic($"UpdateService: download done ({read / 1024 / 1024} MB)");
             }
 
             // 1. SHA-256 check.

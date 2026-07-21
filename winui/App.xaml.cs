@@ -268,7 +268,10 @@ public partial class App : Application
             // Используем уже проверенный info из момента показа toast — не re-checkAsync,
             // иначе получим второй toast (CheckAsync триггерит UpdateAvailable event).
             var app = Current as App;
-            var info = app?._trayWindow?.Tray?.PendingUpdate ?? await UpdateService.CheckAsync();
+            // fireEvent:false — иначе UpdateAvailable → ShowUpdateAvailable → дубликат toast
+            // прямо во время установки (сценарий: пользователь кликает persistent toast из Action
+            // Center после рестарта, _pendingUpdate ещё null, идём в fallback CheckAsync).
+            var info = app?._trayWindow?.Tray?.PendingUpdate ?? await UpdateService.CheckAsync(fireEvent: false);
             if (info == null)
             {
                 LogStatic("Toast install: пусто — обновление уже установлено или проверка не удалась");
@@ -276,7 +279,8 @@ public partial class App : Application
                 return;
             }
             LogStatic($"Toast install: качаю {info.Version}");
-            bool ok = await UpdateService.DownloadAndInstallAsync(info);
+            var progress = app?._trayWindow?.Tray?.ShowDownloadProgress(info.Version);
+            bool ok = await UpdateService.DownloadAndInstallAsync(info, progress);
             if (!ok) app?._trayWindow?.Tray?.ShowError($"Не удалось установить обновление {info.Version}. Смотрите лог в LocalCache.");
         }
         catch (Exception ex)

@@ -92,6 +92,53 @@ public sealed partial class TrayIconHost : UserControl
         catch (Exception ex) { App.LogStatic("ShowError ex: " + ex.Message); }
     }
 
+    /// <summary>Показать progress toast для download и вернуть IProgress который его обновляет.
+    /// Toast имеет Tag = "monitune-update-progress" — последующие Show с тем же Tag заменяют предыдущий,
+    /// так что update идёт in-place, без спама уведомлений.</summary>
+    public IProgress<double> ShowDownloadProgress(string version)
+    {
+        const string tag = "monitune-update-progress";
+        var progressData = new Microsoft.Windows.AppNotifications.AppNotificationProgressData(1)
+        {
+            Title = $"Загрузка MoniTune {version}",
+            Value = 0,
+            ValueStringOverride = "0%",
+            Status = "Скачиваю обновление…",
+        };
+        try
+        {
+            var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
+                .AddText($"Обновление MoniTune {version}")
+                .AddProgressBar(new Microsoft.Windows.AppNotifications.Builder.AppNotificationProgressBar()
+                    .BindTitle().BindValueStringOverride().BindStatus());
+            var notification = builder.BuildNotification();
+            notification.Tag = tag;
+            notification.Progress = progressData;
+            Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(notification);
+        }
+        catch (Exception ex) { App.LogStatic("ShowDownloadProgress ex: " + ex.Message); }
+
+        int lastPercent = -1;
+        return new Progress<double>(frac =>
+        {
+            int p = (int)(frac * 100);
+            if (p == lastPercent) return;
+            lastPercent = p;
+            var data = new Microsoft.Windows.AppNotifications.AppNotificationProgressData(2)
+            {
+                Title = $"Загрузка MoniTune {version}",
+                Value = frac,
+                ValueStringOverride = p + "%",
+                Status = p < 100 ? "Скачиваю обновление…" : "Устанавливаю…",
+            };
+            try
+            {
+                _ = Microsoft.Windows.AppNotifications.AppNotificationManager.Default.UpdateAsync(data, tag);
+            }
+            catch (Exception ex) { App.LogStatic("progress update ex: " + ex.Message); }
+        });
+    }
+
     async void UpdateClick(object sender, RoutedEventArgs e)
     {
         var info = _pendingUpdate;
@@ -99,8 +146,10 @@ public sealed partial class TrayIconHost : UserControl
         try
         {
             App.LogStatic($"User clicked update → {info.Version}");
-            bool ok = await UpdateService.DownloadAndInstallAsync(info);
+            var progress = ShowDownloadProgress(info.Version);
+            bool ok = await UpdateService.DownloadAndInstallAsync(info, progress);
             if (ok) App.LogStatic("Update installed — приложение должно перезапуститься");
+            else ShowError($"Не удалось установить обновление {info.Version}. Проверьте соединение и лог.");
         }
         catch (Exception ex) { App.LogStatic("UpdateClick ex: " + ex); }
     }

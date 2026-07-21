@@ -126,33 +126,43 @@ public sealed partial class MainWindow : Window
         var banner = BuildStatusBanner(m);
         if (banner != null) sp.Children.Add(banner);
 
-        // eDP / DisplayLink / DdcPermanentlyUnavailable — DDC/CI недоступен физически.
-        // Скрываем слайдеры, показываем причину.
-        bool ddcAvailable = m.DdcSupported && !m.DisplayLink && m.OutputTechnology != OutputTech.Internal;
-        if (!ddcAvailable)
+        // Три состояния:
+        // 1) eDP (встроенный дисплей ноутбука, WMI) — только Brightness, без Contrast
+        // 2) обычный DDC/CI — Brightness + Contrast
+        // 3) недоступно (DisplayLink / permanentlyUnavailable) — баннер "не работает"
+        if (m.IsEdp)
         {
-            string reason = m.DisplayLink
-                ? "DisplayLink адаптер — управление яркостью через DDC/CI не передаётся"
-                : m.OutputTechnology == OutputTech.Internal
-                    ? "Внутренний дисплей — управление через WMI (сторонний путь, пока не реализован)"
-                    : "Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)";
-            var unavailBanner = new Border
-            {
-                Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemControlBackgroundBaseLowBrush"],
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
-                Child = new TextBlock
-                {
-                    Text = "Управление недоступно. " + reason,
-                    FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.85,
-                },
-            };
-            sp.Children.Add(unavailBanner);
+            sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, "Яркость"));
+            // Contrast не показываем — WMI не поддерживает.
         }
         else
         {
-            sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, "Яркость"));
-            sp.Children.Add(BuildRow(idx, DdcManager.VCP_CONTRAST, "Контраст"));
+            bool ddcAvailable = m.DdcSupported && !m.DisplayLink && m.OutputTechnology != OutputTech.Internal;
+            if (!ddcAvailable)
+            {
+                string reason = m.DisplayLink
+                    ? "DisplayLink адаптер — управление яркостью через DDC/CI не передаётся"
+                    : m.OutputTechnology == OutputTech.Internal
+                        ? "Встроенный дисплей — WMI отдал не удалось прочитать. Обновите драйвер видеокарты."
+                        : "Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)";
+                var unavailBanner = new Border
+                {
+                    Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemControlBackgroundBaseLowBrush"],
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
+                    Child = new TextBlock
+                    {
+                        Text = "Управление недоступно. " + reason,
+                        FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.85,
+                    },
+                };
+                sp.Children.Add(unavailBanner);
+            }
+            else
+            {
+                sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, "Яркость"));
+                sp.Children.Add(BuildRow(idx, DdcManager.VCP_CONTRAST, "Контраст"));
+            }
         }
 
         // Полная цепочка соединения: GPU → транспорт → монитор

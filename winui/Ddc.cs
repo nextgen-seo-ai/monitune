@@ -41,6 +41,9 @@ public class MonInfo
     public string? AdapterName;
     public bool DdcSupported = true;         // false = монитор не отвечает по DDC/CI вообще
     public bool DisplayLink;                 // подключён через DisplayLink адаптер (нет DDC)
+    /// <summary>Встроенный дисплей ноутбука (eDP). Управление яркостью через WMI, не DDC.
+    /// Contrast недоступен — только brightness. Detects по OutputTechnology.Internal + WMI probe.</summary>
+    public bool IsEdp;
     public bool ProbablyFreeSync;            // подозрительно мало кодов в caps — вероятно FreeSync/HDR блокирует
     public bool ReadOnlyBrightness;          // Set не меняет значение (HDR mode)
     public int VerifyDelayMs = 200;          // задержка перед Get-verify (зависит от GPU)
@@ -212,11 +215,45 @@ public class DdcManager
             handles.Add(h); devices.Add(mi.szDevice); return true;
         }, IntPtr.Zero);
         var list = new List<MonInfo>();
+        // eDP-детектор: если у устройства нет physical monitor'а (или он не отвечает по DDC),
+        // но outputTechnology=Internal и WMI отдаёт WmiMonitorBrightness — это встроенный
+        // экран ноутбука. Управление через WMI, а не DDC/CI.
+        bool edpWmiAvailable = EdpBrightnessService.IsAvailable();
+        Log?.Invoke($"  Enumerate: eDP WMI available = {edpWmiAvailable}");
         for (int i = 0; i < handles.Count; i++)
         {
             uint num = 0;
-            if (!Native.GetNumberOfPhysicalMonitorsFromHMONITOR(handles[i], ref num) || num == 0)
+            bool hasPhysical = Native.GetNumberOfPhysicalMonitorsFromHMONITOR(handles[i], ref num) && num > 0;
+            if (!hasPhysical)
             {
+                // Проверим — может это eDP: OutputTechnology=Internal + WMI умеет brightness.
+                var techPre = MonitorNameResolver.GetOutputTechnology(MonitorDeviceId(devices[i]));
+                if (techPre == OutputTech.Internal && edpWmiAvailable)
+                {
+                    var (edpGpu, edpGpuName) = GpuDetector.DetectForDisplay(devices[i]);
+                    string edpToken = MonitorToken(devices[i]) ?? "";
+                    string edpDevTail = devices[i].StartsWith("\\\\.\\DISPLAY") ? devices[i].Substring(9) : devices[i];
+                    string edpShortId = "eDP@" + edpDevTail;
+                    var edpDeviceId = MonitorDeviceId(devices[i]);
+                    var edpEdid = edpDeviceId != null ? EdidReader.Read(edpDeviceId) : null;
+                    string edpName = edpEdid?.MonitorName ?? "Встроенный дисплей";
+                    list.Add(new MonInfo
+                    {
+                        Handle = IntPtr.Zero,   // eDP не имеет DDC handle
+                        Device = devices[i], Token = edpToken,
+                        Name = edpName, ShortId = edpShortId, Edid = edpEdid,
+                        OutputTechnology = OutputTech.Internal,
+                        Gpu = edpGpu, AdapterName = edpGpuName,
+                        DdcSupported = false,        // важно: не идём в DDC path
+                        IsEdp = true,
+                        HasBrightness = true, HasContrast = false,
+                        WriteGapMs = 50,             // WMI-write быстрый, throttle минимальный
+                        VerifyDelayMs = 100,
+                        Generation = CurrentGeneration,
+                    });
+                    Log?.Invoke($"  Monitor eDP: {edpName} [{edpShortId}] transport=Internal (WMI) gpu={edpGpu}");
+                    continue;
+                }
                 Log?.Invoke($"  Enumerate: GetNumberOfPhysicalMonitors FAILED для {devices[i]} — пропускаем");
                 continue;
             }
@@ -250,6 +287,7 @@ public class DdcManager
             // ShortId для лога: last4 токена (например "R55" → "R55") + \.\DISPLAY#
             string devTail = devices[i].StartsWith("\\\\.\\DISPLAY") ? devices[i].Substring(9) : devices[i];
             string shortId = ((token != null && token.Length >= 4) ? token.Substring(token.Length - 4) : (token ?? "?")) + "@" + devTail;
+            bool isEdp = tech == OutputTech.Internal && edpWmiAvailable;
             list.Add(new MonInfo
             {
                 Handle = arr[0].hPhysicalMonitor,
@@ -262,8 +300,12 @@ public class DdcManager
                 AdapterName = gpuName,
                 DisplayLink = gpu == GpuVendor.DisplayLink,
                 DdcSupported = gpu != GpuVendor.DisplayLink && tech != OutputTech.Internal,
-                VerifyDelayMs = GpuDetector.VerifyDelayFor(gpu),
-                WriteGapMs = ComputeThrottle(vendor, tech),
+                IsEdp = isEdp,
+                // Для eDP предзаполняем flags — SafeCaps не нужен, WMI прямой.
+                HasBrightness = isEdp,
+                HasContrast = isEdp ? false : false,
+                VerifyDelayMs = isEdp ? 100 : GpuDetector.VerifyDelayFor(gpu),
+                WriteGapMs = isEdp ? 50 : ComputeThrottle(vendor, tech),
                 Generation = CurrentGeneration,
             });
             Log?.Invoke($"  Monitor: {resolved.Name} [{shortId}] transport={tech} gpu={gpu} '{gpuName}' throttle={ComputeThrottle(vendor, tech)}ms gen={CurrentGeneration}");
@@ -378,6 +420,14 @@ public class DdcManager
         try
         {
             if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed at entry"); return; }
+            // eDP fast-path: сразу читаем brightness через WMI, никаких DDC caps.
+            if (m.IsEdp)
+            {
+                int b = SafeRead(m, VCP_BRIGHTNESS);
+                Log?.Invoke($"  [{m.ShortId}] eDP: brightness={b}");
+                if (b >= 0) Raise(IndexOf(m), VCP_BRIGHTNESS, b);
+                return;
+            }
             Log?.Invoke($"  [{m.ShortId}]: start (handle=0x{m.Handle.ToInt64():X} DdcSup={m.DdcSupported} DL={m.DisplayLink} PermUnav={m.DdcPermanentlyUnavailable})");
             if (m.DisplayLink || !m.DdcSupported || m.DdcPermanentlyUnavailable)
             {
@@ -455,6 +505,15 @@ public class DdcManager
 
     int SafeRead(MonInfo m, byte vcp)
     {
+        // eDP-фаст-path: WMI read, contrast для eDP всегда -1 (не поддерживается).
+        if (m.IsEdp)
+        {
+            if (vcp != VCP_BRIGHTNESS) return -1;
+            int b = EdpBrightnessService.Read();
+            m.Brightness = b;
+            return b;
+        }
+
         try
         {
             lock (m.OpLock)
@@ -551,6 +610,21 @@ public class DdcManager
     /// false = handle invalid / vcp unsupported / access denied / transient — Loop должен показать real value через SafeRead.</summary>
     bool SafeWrite(MonInfo m, byte vcp, int val)
     {
+        // eDP-фаст-path: WMI напрямую, никакого DDC/CI. Contrast для eDP игнорируется
+        // (WMI не поддерживает — только brightness).
+        if (m.IsEdp)
+        {
+            if (vcp != VCP_BRIGHTNESS) return false;
+            bool okEdp = EdpBrightnessService.Write(val);
+            if (okEdp)
+            {
+                m.Brightness = val;
+                Log?.Invoke($"SafeWrite [{m.ShortId}] eDP val={val} ok=True");
+            }
+            else Log?.Invoke($"SafeWrite [{m.ShortId}] eDP val={val} ok=False");
+            return okEdp;
+        }
+
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {

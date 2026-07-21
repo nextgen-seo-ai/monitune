@@ -112,6 +112,7 @@ public partial class App : Application
 
         _ddc = new DdcManager();
         DdcManager.Log = L;
+        EdpBrightnessService.Log = L;
         _ddc.OnValue += u => _ui!.TryEnqueue(() => _window?.OnValueUpdate(u));
         _ddc.OnInitDone += () => _ui!.TryEnqueue(InitDone);
         try { _ddc.Enumerate(); } catch (Exception ex) { L("Enumerate ex: " + ex); }

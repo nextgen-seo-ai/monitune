@@ -16,23 +16,14 @@ if %ERRORLEVEL% NEQ 0 (
 
 cd /d "%~dp0"
 
-echo [1/3] Установка Windows App SDK Runtime...
-if exist "WindowsAppRuntime-x64.exe" (
-    start /wait "" "WindowsAppRuntime-x64.exe" --quiet
-    echo       Готово.
-) else (
-    echo       Файл WindowsAppRuntime-x64.exe не найден, пропускаем.
-)
-echo.
-
-echo [2/3] Импорт сертификата в доверенные...
+echo [1/2] Импорт сертификата в доверенные...
 powershell -ExecutionPolicy Bypass -Command ^
     "Import-Certificate -FilePath '%~dp0MonitorTune.cer' -CertStoreLocation Cert:\LocalMachine\Root | Out-Null; ^
      Import-Certificate -FilePath '%~dp0MonitorTune.cer' -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null"
 echo       Готово.
 echo.
 
-echo [3/3] Установка MoniTune...
+echo [2/2] Установка MoniTune...
 powershell -ExecutionPolicy Bypass -Command ^
     "Add-AppxPackage -Path '%~dp0MonitorTune_1.0.0.0_x64.msixbundle'"
 if %ERRORLEVEL% EQU 0 (

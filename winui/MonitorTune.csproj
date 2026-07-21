@@ -40,6 +40,19 @@
          с single-instance логикой (AppInstance.FindOrRegisterForKey), иначе клик по
          toast поднимает второй instance приложения и его activation args теряются. -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- Self-contained: MSIX включает .NET 9 Desktop Runtime + WindowsAppSDK 1.8 внутри.
+         Без этого юзер получает диалог "требуется .NET Desktop Runtime" при первом запуске,
+         если у него не установлен нужный runtime.
+         Trade-off: MSIX вырастет с ~12 MB до ~60-70 MB (self-contained + trimmed),
+         но zero user friction — installer работает на чистой Windows без предварительных условий. -->
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- PublishReadyToRun требует Microsoft.NETCore.App.Runtime.win-x64 crossgen2 pack —
+         в CI не всегда установлен, а startup boost для маленькой WinUI 3 утилиты
+         несущественный. Отключено ради надёжности build.
+         PublishTrimmed выключен: WinUI 3 XAML использует reflection (ItemsRepeater, x:Bind
+         на untyped, MenuFlyoutItem Command), trim роняет UI в рантайме — надёжнее чуть
+         больший MSIX (~60 MB) чем сюрприз-крэш у юзера. -->
   </PropertyGroup>
 
   <ItemGroup>

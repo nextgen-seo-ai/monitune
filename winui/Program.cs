@@ -26,7 +26,10 @@ public static class Program
         {
             // Основной instance уже запущен — пересылаем ему activation (toast click и т.д.)
             // и выходим. Так у пользователя всегда один tray-иконка.
-            mainInstance.RedirectActivationToAsync(activation).AsTask().Wait();
+            // GetResult() вместо .Wait() чтобы не оборачивать exception в AggregateException,
+            // и потому что нет проблемы deadlock: у нас нет SynchronizationContext на этом
+            // этапе (он ставится только внутри Application.Start в main instance).
+            mainInstance.RedirectActivationToAsync(activation).AsTask().GetAwaiter().GetResult();
             return 0;
         }
 

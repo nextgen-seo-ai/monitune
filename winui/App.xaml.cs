@@ -8,7 +8,7 @@ namespace MonitorTune;
 public partial class App : Application
 {
     MainWindow? _window;
-    TrayWindow? _trayWindow;
+    internal TrayWindow? _trayWindow;
     DdcManager? _ddc;
     static DispatcherQueue? _ui;
     NightMode? _night;
@@ -196,52 +196,94 @@ public partial class App : Application
             }, null, TimeSpan.FromHours(4), TimeSpan.FromHours(4));
         }
 
+        // AppNotificationManager: регистрация ОБЯЗАТЕЛЬНА до первого toast, иначе
+        // клик по нему не доставляется. Единственный поддерживаемый путь для WinUI 3 desktop
+        // MSIX (classic Windows.UI.Notifications требует COM activator + CLSID).
+        try
+        {
+            var mgr = Microsoft.Windows.AppNotifications.AppNotificationManager.Default;
+            mgr.NotificationInvoked += OnToastInvoked;
+            mgr.Register();
+            L("AppNotifications registered");
+        }
+        catch (Exception ex) { L("AppNotifications register ex: " + ex.Message); }
+
         L("OnLaunched done");
 
-        // Первый запуск — приложение могло быть поднято кликом по toast:
-        // проверим activation args и обработаем сразу.
+        // Первый запуск — приложение могло быть поднято кликом по toast.
+        // Здесь обрабатываем ТОЛЬКО AppNotification kind, обычный Launch — не reason
+        // показывать flyout (первый запуск не должен вести себя как клик на трее).
         try
         {
             var firstActivation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
-            HandleRedirectedActivation(firstActivation);
+            if (firstActivation?.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.AppNotification)
+                HandleRedirectedActivation(firstActivation);
+            else
+                L($"First activation kind={firstActivation?.Kind} — no action");
         }
         catch (Exception ex) { L("first activation check ex: " + ex.Message); }
     }
 
-    /// <summary>Единая точка обработки activation events — вызывается из Program.Main
-    /// на каждую активацию (первый запуск + все redirected toast/protocol activations).</summary>
+    static void OnToastInvoked(Microsoft.Windows.AppNotifications.AppNotificationManager sender,
+                                Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs args)
+    {
+        try
+        {
+            var action = args.Arguments.TryGetValue("action", out var a) ? a : "";
+            LogStatic($"Toast invoked: action='{action}'");
+            if (action == "update") _ui?.TryEnqueue(InstallPendingUpdate);
+        }
+        catch (Exception ex) { LogStatic("OnToastInvoked ex: " + ex); }
+    }
+
+    /// <summary>Обработка первичной активации (запуск процесса кликом по toast). Не вызывать для
+    /// последующих активаций уже-живого instance — те приходят через NotificationInvoked.</summary>
     public static void HandleRedirectedActivation(Microsoft.Windows.AppLifecycle.AppActivationArguments args)
     {
         if (args == null) return;
         try
         {
             LogStatic($"Activation kind={args.Kind}");
-            if (args.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.ToastNotification)
+            if (args.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.AppNotification)
             {
-                var toastArgs = args.Data as Windows.ApplicationModel.Activation.ToastNotificationActivatedEventArgs;
-                var arg = toastArgs?.Argument ?? "";
-                LogStatic($"Toast activation arg='{arg}'");
-                if (arg.Contains("action=update"))
-                {
-                    _ui?.TryEnqueue(async () =>
-                    {
-                        try
-                        {
-                            LogStatic("Toast update: forcing check + install");
-                            var info = await UpdateService.CheckAsync();
-                            if (info != null)
-                            {
-                                LogStatic($"Toast update: installing {info.Version}");
-                                await UpdateService.DownloadAndInstallAsync(info);
-                            }
-                            else LogStatic("Toast update: CheckAsync returned null — nothing to install");
-                        }
-                        catch (Exception ex) { LogStatic("Toast install ex: " + ex); }
-                    });
-                }
+                var data = args.Data as Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs;
+                var action = data?.Arguments != null && data.Arguments.TryGetValue("action", out var a) ? a : "";
+                LogStatic($"AppNotification activation action='{action}'");
+                if (action == "update") _ui?.TryEnqueue(InstallPendingUpdate);
+            }
+            else if (args.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.Launch)
+            {
+                // Второй запуск через shortcut/plate: main instance уже жив,
+                // единственная разумная реакция — показать flyout под курсором.
+                _ui?.TryEnqueue(() => (Current as App)?.ShowFlyout());
             }
         }
         catch (Exception ex) { LogStatic("HandleRedirectedActivation ex: " + ex); }
+    }
+
+    static async void InstallPendingUpdate()
+    {
+        try
+        {
+            // Используем уже проверенный info из момента показа toast — не re-checkAsync,
+            // иначе получим второй toast (CheckAsync триггерит UpdateAvailable event).
+            var app = Current as App;
+            var info = app?._trayWindow?.Tray?.PendingUpdate ?? await UpdateService.CheckAsync();
+            if (info == null)
+            {
+                LogStatic("Toast install: пусто — обновление уже установлено или проверка не удалась");
+                app?._trayWindow?.Tray?.ShowError("Обновление недоступно. Возможно вы уже на последней версии или нет соединения с GitHub.");
+                return;
+            }
+            LogStatic($"Toast install: качаю {info.Version}");
+            bool ok = await UpdateService.DownloadAndInstallAsync(info);
+            if (!ok) app?._trayWindow?.Tray?.ShowError($"Не удалось установить обновление {info.Version}. Смотрите лог в LocalCache.");
+        }
+        catch (Exception ex)
+        {
+            LogStatic("InstallPendingUpdate ex: " + ex);
+            (Current as App)?._trayWindow?.Tray?.ShowError("Ошибка установки: " + ex.Message);
+        }
     }
 
     void InitDone()
@@ -255,7 +297,7 @@ public partial class App : Application
         }
     }
 
-    void ShowFlyout()
+    internal void ShowFlyout()
     {
         L("ShowFlyout");
         if (_window == null) return;

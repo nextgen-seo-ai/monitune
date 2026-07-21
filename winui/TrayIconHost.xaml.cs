@@ -46,6 +46,9 @@ public sealed partial class TrayIconHost : UserControl
     void RefreshClick(object sender, RoutedEventArgs e) => OnRefresh?.Invoke();
 
     UpdateService.UpdateInfo? _pendingUpdate;
+    /// <summary>Последняя известная UpdateInfo — используется toast handler'ом чтобы не
+    /// re-CheckAsync (иначе получим второй UpdateAvailable event → дубликат toast).</summary>
+    public UpdateService.UpdateInfo? PendingUpdate => _pendingUpdate;
     /// <summary>Показать в трее что доступно обновление (через баллун и активацию пункта меню).</summary>
     public void ShowUpdateAvailable(UpdateService.UpdateInfo info)
     {
@@ -57,32 +60,36 @@ public sealed partial class TrayIconHost : UserControl
                 UpdateMenuItem.Text = $"Обновить до {info.Version}";
                 UpdateMenuItem.Visibility = Visibility.Visible;
             }
-            // Тост-уведомление через шелл (WinUI TrayIcon не имеет ShowBalloon).
-            var toast = new Windows.UI.Notifications.ToastNotification(BuildUpdateToast(info));
-            Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier().Show(toast);
+            // Microsoft.Windows.AppNotifications — единственный путь для WinUI 3 desktop MSIX
+            // где toast click правильно доставляется приложению через NotificationInvoked event.
+            // Classic Windows.UI.Notifications требует ComServer + [ComVisible] + CLSID активатор;
+            // AppNotificationManager делает это автоматически.
+            var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
+                .AddText($"Доступно обновление MoniTune {info.Version}")
+                .AddText(info.Notes ?? "Нажмите чтобы установить обновление")
+                .AddArgument("action", "update")
+                .AddArgument("version", info.Version)
+                .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton("Обновить")
+                    .AddArgument("action", "update")
+                    .AddArgument("version", info.Version))
+                .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton("Позже")
+                    .AddArgument("action", "dismiss"));
+            var notification = builder.BuildNotification();
+            Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(notification);
         }
         catch (Exception ex) { App.LogStatic("ShowUpdateAvailable ex: " + ex.Message); }
     }
 
-    static Windows.Data.Xml.Dom.XmlDocument BuildUpdateToast(UpdateService.UpdateInfo info)
+    public void ShowError(string message)
     {
-        // launch на root = клик по всему toast body тоже запускает обновление
-        // (не только по кнопке "Обновить"). activationType=foreground → приложение поднимается
-        // и Program.Main → mainInstance.Activated → App.HandleRedirectedActivation.
-        var xml = $@"
-<toast activationType=""foreground"" launch=""action=update"">
-  <visual><binding template=""ToastGeneric"">
-    <text>Доступно обновление MoniTune {System.Security.SecurityElement.Escape(info.Version)}</text>
-    <text>{System.Security.SecurityElement.Escape(info.Notes ?? "Нажмите чтобы установить обновление")}</text>
-  </binding></visual>
-  <actions>
-    <action content=""Обновить"" arguments=""action=update"" activationType=""foreground""/>
-    <action content=""Позже"" arguments=""action=dismiss"" activationType=""system""/>
-  </actions>
-</toast>";
-        var doc = new Windows.Data.Xml.Dom.XmlDocument();
-        doc.LoadXml(xml);
-        return doc;
+        try
+        {
+            var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
+                .AddText("MoniTune")
+                .AddText(message);
+            Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(builder.BuildNotification());
+        }
+        catch (Exception ex) { App.LogStatic("ShowError ex: " + ex.Message); }
     }
 
     async void UpdateClick(object sender, RoutedEventArgs e)

@@ -6,7 +6,8 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
-  IgnorableNamespaces="uap rescap desktop">
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap rescap desktop com">
 
   <!-- Publisher должен побайтно совпадать с Subject нашего code signing cert:
        CN=MonitorTune, O=nextgen-seo-ai, C=RU (см. release/GENERATE-KEYS.md).
@@ -16,7 +17,7 @@
   <Identity
     Name="MonitorTune"
     Publisher="CN=MonitorTune, O=nextgen-seo-ai, C=RU"
-    Version="1.0.12.0" />
+    Version="1.0.13.0" />
 
   <mp:PhoneIdentity PhoneProductId="BF0AE75C-4C77-4E02-BCA4-59DDCC7DE641" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -55,6 +56,20 @@
           <desktop:StartupTask TaskId="MonitorTuneStartup"
                                Enabled="false"
                                DisplayName="MoniTune" />
+        </desktop:Extension>
+        <!-- App Notifications COM activator (Microsoft.Windows.AppNotifications).
+             Windows использует CLSID чтобы доставить toast-click активирующему exe.
+             GUID произвольный, но должен побайтно совпадать в manifest и AppNotificationManager.Default.Register().
+             WinAppSDK сам реализует INotificationActivationCallback — [ComVisible] класс НЕ нужен. -->
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="MonitorTune.exe" Arguments="----AppNotificationActivated:" DisplayName="MoniTune Toast Activator">
+              <com:Class Id="CE7F9D62-89B4-4A4E-9D3A-4B7C5A2F1E6D" DisplayName="MoniTune Toast Activator" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="CE7F9D62-89B4-4A4E-9D3A-4B7C5A2F1E6D" />
         </desktop:Extension>
       </Extensions>
     </Application>

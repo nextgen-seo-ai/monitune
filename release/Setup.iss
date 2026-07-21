@@ -57,7 +57,7 @@ Filename: "powershell.exe"; \
 ; 3. Установить MSIX
 Filename: "powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Add-AppxPackage -Path '{app}\MonitorTune_1.0.0.0_x64.msixbundle'"""; \
-    StatusMsg: "Установка приложения MonitorTune..."; \
+    StatusMsg: "Установка приложения MoniTune..."; \
     Flags: waituntilterminated runhidden
 
 ; 4. Запустить приложение по окончании (опционально, чекбокс)

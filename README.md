@@ -1,6 +1,6 @@
 # MoniTune
 
-**[monitune.github.io](https://nextgen-seo-ai.github.io/monitune/)** · [Скачать последнюю версию](https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe)
+**[nextgen-seo-ai.github.io/monitune](https://nextgen-seo-ai.github.io/monitune/)** · [Скачать последнюю версию](https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe)
 
 Утилита для Windows 11 — управление яркостью и контрастностью внешних мониторов через DDC/CI.
 

@@ -775,29 +775,6 @@ h1.hero-title em {
         </div>
       </div>
     </div>
-        <div class="trust-item">
-          <div class="trust-num">02</div>
-          <div>
-            <div class="trust-title">SHA-256 из подписанного манифеста</div>
-            <div class="trust-body">Приложение сверяет хэш скачанного MSIX с полем в manifest.json. Manifest без валидной подписи отвергается до чтения содержимого.</div>
-          </div>
-        </div>
-        <div class="trust-item">
-          <div class="trust-num">03</div>
-          <div>
-            <div class="trust-title">Authenticode + WinVerifyTrust</div>
-            <div class="trust-body">До установки WinVerifyTrust проверяет цепочку подписи MSIX и сверяет thumbprint издателя с зашитой константой.</div>
-          </div>
-        </div>
-        <div class="trust-item">
-          <div class="trust-num">04</div>
-          <div>
-            <div class="trust-title">Downgrade protection</div>
-            <div class="trust-body">Установка версии меньше текущей запрещена. Обход только через явный флаг в настройках — защищает от отката на уязвимую сборку.</div>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 
   <section class="specs" id="specs">
@@ -835,10 +812,6 @@ h1.hero-title em {
  * Mesh-fallback для случая когда GitHub недоступен — зашивается в бинарь приложения,
  * не в открытую разметку страницы. Приложение само переключается при недоступности GH.
  * ================================================ */
-const RELEASE_URL = "https://github.com/nextgen-seo-ai/monitune/releases/latest";
-const DOWNLOAD_URL = "https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe";
-const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
-
 /* ── Brightness demo slider ──────────────────── */
 (function () {
   const track = document.getElementById('dimmer-track');
@@ -918,13 +891,11 @@ const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (release) {
       if (!release || !release.tag_name) return;
-      // tag_name: "v1.0.8" → "v1.0.8"
       const ver = release.tag_name;
       const heroVer = document.getElementById('hero-version');
       if (heroVer) heroVer.textContent = ver;
       const fileVer = document.getElementById('file-version');
       if (fileVer) fileVer.textContent = ver;
-      // Размер setup.exe из assets[]
       if (Array.isArray(release.assets)) {
         const setup = release.assets.find(function (a) { return a.name === 'MonitorTune-Setup.exe'; });
         if (setup && setup.size) {
@@ -932,6 +903,10 @@ const SETUP_FILE = "MonitorTune-Setup-1.0.0.exe";
           const sizeEl = document.getElementById('file-size');
           if (sizeEl) sizeEl.textContent = mb + ' MB';
         }
+      }
+      const bt = document.getElementById('build-tag');
+      if (bt && release.published_at) {
+        bt.textContent = 'build ' + ver.replace(/^v/, '') + ' · updated ' + release.published_at.slice(0, 10);
       }
     })
     .catch(function () { /* offline или API rate limit — placeholder остаётся */ });

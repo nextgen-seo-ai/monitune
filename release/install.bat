@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
-title Установка MonitorTune
+title Установка MoniTune
 echo ============================================================
-echo MonitorTune - установка
+echo MoniTune - установка
 echo ============================================================
 echo.
 
@@ -32,7 +32,7 @@ powershell -ExecutionPolicy Bypass -Command ^
 echo       Готово.
 echo.
 
-echo [3/3] Установка MonitorTune...
+echo [3/3] Установка MoniTune...
 powershell -ExecutionPolicy Bypass -Command ^
     "Add-AppxPackage -Path '%~dp0MonitorTune_1.0.0.0_x64.msixbundle'"
 if %ERRORLEVEL% EQU 0 (
@@ -41,7 +41,7 @@ if %ERRORLEVEL% EQU 0 (
     echo ============================================================
     echo Установка завершена.
     echo Иконка-солнышко появится в области уведомлений Windows.
-    echo Запустить можно из меню Пуск ^>^> MonitorTune.
+    echo Запустить можно из меню Пуск ^>^> MoniTune.
     echo ============================================================
 ) else (
     echo       Ошибка установки. Проверьте журнал выше.

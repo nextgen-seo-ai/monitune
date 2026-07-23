@@ -56,6 +56,16 @@ public sealed partial class TrayIconHost : UserControl
         HookRightClickAsLeftToggle(AutoStartItem, AutoStartClick);
         HookRightClickAsLeft(AboutMenuItem, AboutClick);
         HookRightClickAsLeft(ExitMenuItem, ExitClick);
+
+        // При каждом open меню синхронизируем галочку с реальным StartupTaskState —
+        // юзер мог включить/выключить автозапуск через Параметры Windows между показами.
+        if (Tray.ContextFlyout is MenuFlyout mfOpening)
+        {
+            mfOpening.Opening += (_, _) =>
+            {
+                try { AutoStartItem.IsChecked = IsAutostart(); } catch { }
+            };
+        }
     }
 
     void HookRightClickAsLeft(MenuFlyoutItem item, RoutedEventHandler click)
@@ -227,9 +237,53 @@ public sealed partial class TrayIconHost : UserControl
         }
         catch (Exception ex) { App.LogStatic("RemoveProgressToast ex: " + ex.Message); }
     }
-    void AutoStartClick(object sender, RoutedEventArgs e)
+    async void AutoStartClick(object sender, RoutedEventArgs e)
     {
-        SetAutostart(AutoStartItem.IsChecked);
+        bool wanted = AutoStartItem.IsChecked;
+        try
+        {
+            var task = await Windows.ApplicationModel.StartupTask.GetAsync(StartupTaskId);
+            Windows.ApplicationModel.StartupTaskState newState;
+            if (wanted)
+            {
+                newState = await task.RequestEnableAsync();
+                App.LogStatic($"StartupTask RequestEnable → {newState}");
+            }
+            else
+            {
+                task.Disable();
+                newState = Windows.ApplicationModel.StartupTaskState.Disabled;
+                App.LogStatic("StartupTask disabled");
+            }
+
+            // Сверяем UI с реальным state — Windows может отказать в enable
+            // (DisabledByUser: юзер выключил в Settings→Автозапуск,
+            //  DisabledByPolicy: групповая политика запрещает).
+            bool actuallyOn = newState == Windows.ApplicationModel.StartupTaskState.Enabled
+                           || newState == Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+            if (AutoStartItem.IsChecked != actuallyOn) AutoStartItem.IsChecked = actuallyOn;
+
+            // Если хотели включить но Windows заблокировала — объяснить юзеру.
+            if (wanted && !actuallyOn)
+            {
+                string reason = newState switch
+                {
+                    Windows.ApplicationModel.StartupTaskState.DisabledByUser =>
+                        "Автозапуск отключён вами в Настройках Windows. Включите его в:\nПараметры → Приложения → Автозагрузка → MoniTune.",
+                    Windows.ApplicationModel.StartupTaskState.DisabledByPolicy =>
+                        "Автозапуск запрещён групповой политикой (обычно на рабочих ПК). Обратитесь к администратору.",
+                    _ => $"Windows не разрешила автозапуск (state={newState}). Попробуйте включить вручную в Параметры → Приложения → Автозагрузка.",
+                };
+                ShowError(reason);
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogStatic("AutoStartClick ex: " + ex.Message);
+            // Синхронизируем UI с реальным state (откатим галочку если операция сфейлилась).
+            try { AutoStartItem.IsChecked = IsAutostart(); } catch { }
+            ShowError("Не удалось изменить автозапуск: " + ex.Message);
+        }
     }
 
     // Автозапуск через StartupTask API (правильный путь для MSIX-приложений).
@@ -245,18 +299,6 @@ public sealed partial class TrayIconHost : UserControl
                 || task.State == Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
         }
         catch { return false; }
-    }
-    static void SetAutostart(bool on)
-    {
-        try
-        {
-            var task = Windows.ApplicationModel.StartupTask.GetAsync(StartupTaskId).AsTask().GetAwaiter().GetResult();
-            if (on)
-                _ = task.RequestEnableAsync().AsTask().GetAwaiter().GetResult();
-            else
-                task.Disable();
-        }
-        catch { }
     }
 
     sealed class Relay : ICommand

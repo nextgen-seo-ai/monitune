@@ -180,19 +180,52 @@ public sealed partial class TrayIconHost : UserControl
         });
     }
 
+    static volatile bool _updateInProgress;
     async void UpdateClick(object sender, RoutedEventArgs e)
     {
         var info = _pendingUpdate;
         if (info == null) return;
+        // Двойной клик "Обновить до X" в трее или toast → защита от параллельного download.
+        if (_updateInProgress)
+        {
+            App.LogStatic("UpdateClick: уже идёт download — пропуск повторного клика");
+            return;
+        }
+        _updateInProgress = true;
         try
         {
             App.LogStatic($"User clicked update → {info.Version}");
             var progress = ShowDownloadProgress(info.Version);
             bool ok = await UpdateService.DownloadAndInstallAsync(info, progress);
             if (ok) App.LogStatic("Update installed — приложение должно перезапуститься");
-            else ShowError($"Не удалось установить обновление {info.Version}. Проверьте соединение и лог.");
+            else
+            {
+                // Убрать зависший progress toast ПЕРЕД показом error — иначе два уведомления параллельно
+                // (юзер видит "50% Скачиваю" и "Не удалось" одновременно, путается).
+                RemoveProgressToast();
+                ShowError($"Не удалось установить обновление {info.Version}. Проверьте соединение и попробуйте позже.");
+            }
         }
-        catch (Exception ex) { App.LogStatic("UpdateClick ex: " + ex); }
+        catch (Exception ex)
+        {
+            App.LogStatic("UpdateClick ex: " + ex);
+            RemoveProgressToast();
+            ShowError("Ошибка обновления: " + ex.Message);
+        }
+        finally { _updateInProgress = false; }
+    }
+
+    static void RemoveProgressToast() => RemoveProgressToastStatic();
+
+    /// <summary>Убрать зависший progress-toast (например при download fail) — иначе юзер видит
+    /// и progress "50% Скачиваю", и error "Не удалось" одновременно.</summary>
+    public static void RemoveProgressToastStatic()
+    {
+        try
+        {
+            _ = Microsoft.Windows.AppNotifications.AppNotificationManager.Default.RemoveByTagAsync("monitune-update-progress");
+        }
+        catch (Exception ex) { App.LogStatic("RemoveProgressToast ex: " + ex.Message); }
     }
     void AutoStartClick(object sender, RoutedEventArgs e)
     {

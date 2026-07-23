@@ -88,7 +88,19 @@ public static class UpdateService
         });
     }
 
+    // Semaphore: periodic timer (4h) + resume-from-sleep + startup + manual "Проверить сейчас"
+    // могут дёргать CheckAsync параллельно. Concurrent HTTP + Ed25519 verify — ненужная нагрузка.
+    // 1-slot semaphore сериализует; повторные вызовы просто ждут первый.
+    static readonly System.Threading.SemaphoreSlim _checkSem = new(1, 1);
+
     public static async Task<UpdateInfo?> CheckAsync(bool fireEvent = true)
+    {
+        await _checkSem.WaitAsync();
+        try { return await CheckAsyncCore(fireEvent); }
+        finally { _checkSem.Release(); }
+    }
+
+    static async Task<UpdateInfo?> CheckAsyncCore(bool fireEvent)
     {
         // Порядок источников: сначала GitHub, потом compile-time mesh fallback.
         var sources = new List<string> { GitHubManifestUrl };
@@ -259,20 +271,30 @@ public static class UpdateService
                 using var stream = await resp.Content.ReadAsStreamAsync();
                 var buf = new byte[64 * 1024];
                 long read = 0;
-                int n;
                 int lastLoggedPercent = -1;
-                var lastReadAt = Environment.TickCount;
-                while ((n = await stream.ReadAsync(buf)) > 0)
+                // Idle-timeout: если stream.ReadAsync не возвращает 60 сек — TCP скорее всего мёртв
+                // (обрыв Wi-Fi, суспенд middlebox), abort с ошибкой. HttpClient.Timeout=Infinite
+                // не защищает от такой ситуации — процесс висел бы вечно.
+                const int IdleTimeoutMs = 60_000;
+                while (true)
                 {
+                    using var cts = new System.Threading.CancellationTokenSource(IdleTimeoutMs);
+                    int n;
+                    try { n = await stream.ReadAsync(buf, cts.Token); }
+                    catch (OperationCanceledException)
+                    {
+                        App.LogStatic($"UpdateService: download stalled >{IdleTimeoutMs / 1000}s без данных — abort");
+                        try { File.Delete(msixPath); } catch { }
+                        return false;
+                    }
+                    if (n <= 0) break;
                     await fs.WriteAsync(buf.AsMemory(0, n));
                     read += n;
-                    lastReadAt = Environment.TickCount;
                     if (total > 0)
                     {
                         double frac = (double)read / total;
                         progress?.Report(frac);
                         int percent = (int)(frac * 100);
-                        // Лог каждые 10% — иначе спам при 86 MB.
                         if (percent / 10 != lastLoggedPercent / 10)
                         {
                             App.LogStatic($"UpdateService: download {percent}% ({read / 1024 / 1024} MB)");
@@ -338,10 +360,13 @@ public static class UpdateService
             // (b) Основной механизм: одноразовая Task Scheduler задача.
             // Планируем ДО AddPackageAsync (после kill наш процесс мёртв).
             // Task Scheduler service живёт в отдельном job'е, переживёт наш kill.
-            // Delay 90 сек покрывает worst-case: slow disk, Defender full-scan, staging.
+            // Delay 20 сек — на современном железе install занимает 5-10 сек,
+            // 90 сек тишины читалось как зависание (юзеры ребутили ПК).
+            // Расширенный recovery window (StartBoundary 30 мин + AllowStartOnDemand)
+            // покрывает worst-case для медленных дисков / Defender full-scan.
             // AUMID резолвится динамически из Package.Current.GetAppListEntries().
-            const int RestartDelaySeconds = 90;
-            bool scheduled = ScheduleOneShotRestart(RestartDelaySeconds, out string? scheduleError);
+            const int RestartDelaySeconds = 20;
+            bool scheduled = ScheduleOneShotRestart(RestartDelaySeconds, info.Version, out string? scheduleError);
             if (!scheduled)
                 App.LogStatic($"UpdateService: schtasks scheduling FAILED ({scheduleError ?? "?"}) — user will need to launch manually");
 
@@ -432,7 +457,7 @@ public static class UpdateService
     /// <summary>Планирует одноразовый рестарт через N секунд через Task Scheduler.
     /// AUMID резолвится ДИНАМИЧЕСКИ из Package.Current.GetAppListEntries() —
     /// никакого hardcode "!App". Возвращает true если schtasks /Create отработал c rc=0.</summary>
-    static bool ScheduleOneShotRestart(int delaySeconds, out string? error)
+    static bool ScheduleOneShotRestart(int delaySeconds, string targetVersion, out string? error)
     {
         error = null;
         try
@@ -469,6 +494,8 @@ public static class UpdateService
                     $"task={RestartTaskName}",
                     $"scheduled_utc={DateTime.UtcNow:o}",
                     $"trigger_utc={DateTime.UtcNow.AddSeconds(delaySeconds):o}",
+                    $"from_version={CurrentVersion()}",
+                    $"target_version={targetVersion}",
                 };
                 File.WriteAllLines(PendingRestartMarkerPath, lines, Encoding.UTF8);
             }
@@ -592,6 +619,18 @@ public static class UpdateService
 
             App.LogStatic("UpdateService: pending-restart marker found — cleaning up scheduled task");
 
+            // Читаем marker для сравнения версий → post-update confirmation.
+            string? fromVer = null, targetVer = null;
+            try
+            {
+                foreach (var line in File.ReadAllLines(marker))
+                {
+                    if (line.StartsWith("from_version=")) fromVer = line.Substring(13);
+                    else if (line.StartsWith("target_version=")) targetVer = line.Substring(15);
+                }
+            }
+            catch (Exception ex) { App.LogStatic($"UpdateService: marker read ex: {ex.Message}"); }
+
             try
             {
                 var psi = new System.Diagnostics.ProcessStartInfo
@@ -614,10 +653,102 @@ public static class UpdateService
 
             try { File.Delete(marker); }
             catch (Exception ex) { App.LogStatic($"UpdateService: marker delete ex: {ex.Message}"); }
+
+            // Пост-restart уведомление: успех / провал / неопределённое.
+            if (!string.IsNullOrWhiteSpace(targetVer))
+            {
+                string current = CurrentVersion();
+                bool success = string.Equals(current, targetVer, StringComparison.Ordinal);
+                bool failed = !string.IsNullOrWhiteSpace(fromVer)
+                    && string.Equals(current, fromVer, StringComparison.Ordinal);
+                try
+                {
+                    if (success)
+                    {
+                        App.LogStatic($"UpdateService: post-restart ok — обновлено до {targetVer}");
+                        ShowInfoNotification($"MoniTune обновлён до {targetVer}", "Продолжайте работать — новые исправления уже применены.");
+                    }
+                    else if (failed)
+                    {
+                        App.LogStatic($"UpdateService: post-restart FAIL — остались на {fromVer}, целились в {targetVer}");
+                        ShowInfoNotification("Обновление не установилось",
+                            $"Не удалось перейти с {fromVer} на {targetVer}. Попробуйте позже через «Обновить до…» в меню трея.");
+                    }
+                }
+                catch (Exception ex) { App.LogStatic("post-restart notification ex: " + ex.Message); }
+            }
+
+            // Заодно: cleanup старых MSIX (>3 дней) и crash dumps (>30 дней) — копились вечно.
+            try { CleanupOldFiles(); }
+            catch (Exception ex) { App.LogStatic("cleanup old files ex: " + ex.Message); }
         }
         catch (Exception ex)
         {
             App.LogStatic("UpdateService.ResumeAfterUpdateIfNeeded ex: " + ex);
         }
+    }
+
+    static void ShowInfoNotification(string title, string body)
+    {
+        try
+        {
+            var b = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
+                .AddText(title)
+                .AddText(body);
+            Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(b.BuildNotification());
+        }
+        catch (Exception ex) { App.LogStatic("ShowInfoNotification ex: " + ex.Message); }
+    }
+
+    static void CleanupOldFiles()
+    {
+        // MSIX-кэш: удалить .msix старше 3 дней.
+        try
+        {
+            string cacheDir;
+            try { cacheDir = Path.Combine(Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path, "updates"); }
+            catch { cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "updates"); }
+            if (Directory.Exists(cacheDir))
+            {
+                var cutoff = DateTime.UtcNow.AddDays(-3);
+                foreach (var f in Directory.EnumerateFiles(cacheDir, "*.msix"))
+                {
+                    try
+                    {
+                        if (File.GetLastWriteTimeUtc(f) < cutoff)
+                        {
+                            File.Delete(f);
+                            App.LogStatic($"cleanup: удалён stale MSIX {Path.GetFileName(f)}");
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch (Exception ex) { App.LogStatic("cleanup MSIX ex: " + ex.Message); }
+
+        // Crash dumps: удалить .json старше 30 дней.
+        try
+        {
+            string crashDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "crashes");
+            if (Directory.Exists(crashDir))
+            {
+                var cutoff = DateTime.UtcNow.AddDays(-30);
+                foreach (var f in Directory.EnumerateFiles(crashDir, "*.json"))
+                {
+                    try
+                    {
+                        if (File.GetLastWriteTimeUtc(f) < cutoff)
+                        {
+                            File.Delete(f);
+                            App.LogStatic($"cleanup: удалён stale crash dump {Path.GetFileName(f)}");
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch (Exception ex) { App.LogStatic("cleanup crashes ex: " + ex.Message); }
     }
 }

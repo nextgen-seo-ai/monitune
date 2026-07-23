@@ -283,11 +283,16 @@ public partial class App : Application
             LogStatic($"Toast install: качаю {info.Version}");
             var progress = app?._trayWindow?.Tray?.ShowDownloadProgress(info.Version);
             bool ok = await UpdateService.DownloadAndInstallAsync(info, progress);
-            if (!ok) app?._trayWindow?.Tray?.ShowError($"Не удалось установить обновление {info.Version}. Смотрите лог в LocalCache.");
+            if (!ok)
+            {
+                TrayIconHost.RemoveProgressToastStatic();
+                app?._trayWindow?.Tray?.ShowError($"Не удалось установить обновление {info.Version}. Смотрите лог в LocalCache.");
+            }
         }
         catch (Exception ex)
         {
             LogStatic("InstallPendingUpdate ex: " + ex);
+            TrayIconHost.RemoveProgressToastStatic();
             (Current as App)?._trayWindow?.Tray?.ShowError("Ошибка установки: " + ex.Message);
         }
     }

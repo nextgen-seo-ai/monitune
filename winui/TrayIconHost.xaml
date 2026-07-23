@@ -32,16 +32,10 @@
         </tb:TaskbarIcon.TrayToolTip>
         <tb:TaskbarIcon.ContextFlyout>
             <MenuFlyout x:Name="TrayMenu">
-                <MenuFlyout.MenuFlyoutPresenterStyle>
-                    <Style TargetType="MenuFlyoutPresenter">
-                        <Setter Property="MinWidth" Value="340"/>
-                        <Setter Property="MaxWidth" Value="420"/>
-                    </Style>
-                </MenuFlyout.MenuFlyoutPresenterStyle>
-                <MenuFlyoutItem Text="Открыть панель" Click="OpenClick">
+                <MenuFlyoutItem x:Name="OpenMenuItem" Text="Открыть панель" Click="OpenClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="OpenLocal"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
-                <MenuFlyoutItem Text="Переопределить мониторы" Click="RefreshClick">
+                <MenuFlyoutItem x:Name="RefreshMenuItem" Text="Переопределить мониторы" Click="RefreshClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Refresh"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem x:Name="UpdateMenuItem"
@@ -52,11 +46,11 @@
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
                 <ToggleMenuFlyoutItem x:Name="AutoStartItem" Text="Запускать с Windows" Click="AutoStartClick"/>
-                <MenuFlyoutItem Text="О программе" Click="AboutClick">
+                <MenuFlyoutItem x:Name="AboutMenuItem" Text="О программе" Click="AboutClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Help"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
-                <MenuFlyoutItem Text="Выход" Click="ExitClick">
+                <MenuFlyoutItem x:Name="ExitMenuItem" Text="Выход" Click="ExitClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Cancel"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuFlyout>

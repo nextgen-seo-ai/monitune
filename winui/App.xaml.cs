@@ -124,6 +124,7 @@ public partial class App : Application
 
         _trayWindow = new TrayWindow();
         _trayWindow.Tray.OnOpen += ShowFlyout;
+        _trayWindow.Tray.OnOpenFromMenu += () => ShowFlyoutAt(useTrayPosition: true);
         _trayWindow.Tray.OnExit += Exit;
         _trayWindow.Tray.OnAbout += ShowAbout;
         _trayWindow.Tray.OnRefresh += () => _window?.RefreshMonitors();
@@ -302,11 +303,25 @@ public partial class App : Application
         }
     }
 
-    internal void ShowFlyout()
+    internal void ShowFlyout() => ShowFlyoutAt(useTrayPosition: false);
+
+    internal void ShowFlyoutAt(bool useTrayPosition)
     {
-        L("ShowFlyout");
+        L($"ShowFlyout useTrayPosition={useTrayPosition}");
         if (_window == null) return;
-        Native.GetCursorPos(out var pt);
+        Native.POINT pt;
+        if (useTrayPosition)
+        {
+            // Вызов через "Открыть панель" из контекстного меню — курсор в позиции пункта меню,
+            // не на tray icon. Используем правый нижний угол WorkingArea — стандартная позиция
+            // system tray в Windows 11. Окно окажется у трея вне зависимости где сейчас курсор.
+            var area = Microsoft.UI.Windowing.DisplayArea.Primary.WorkArea;
+            pt = new Native.POINT { X = area.X + area.Width - 24, Y = area.Y + area.Height };
+        }
+        else
+        {
+            Native.GetCursorPos(out pt);
+        }
         _window.ShowNearIcon(pt.X, pt.Y);
     }
 

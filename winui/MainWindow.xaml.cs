@@ -18,6 +18,10 @@ public sealed partial class MainWindow : Window
     readonly Dictionary<int, Microsoft.UI.Xaml.Controls.Primitives.ToggleButton> linkBtns = new();
     Microsoft.UI.Xaml.DispatcherTimer? _focusPoll;
     bool suppress;
+    // Ключи слайдеров, которые user сейчас драгает pointer'ом. Пока drag активен,
+    // не сдвигаем slider из background Raise'ов (иначе Samsung с throttle 200ms
+    // "прыгает" когда возвращается old value пока user уже перетащил дальше).
+    readonly HashSet<string> _draggingKeys = new();
     public NightMode? NightMode;   // ставится извне (App), кнопка дёргает
 
     public MainWindow(DdcManager ddc)
@@ -263,6 +267,22 @@ public sealed partial class MainWindow : Window
             IsThumbToolTipEnabled = false
         };
         sl.ValueChanged += SliderChanged;
+        // Отслеживаем drag через pointer capture. Slider внутренне поглощает
+        // PointerPressed/Released (thumb template помечает Handled=true), поэтому
+        // подписываемся через AddHandler(handledEventsToo:true), иначе события
+        // не долетают до нас и _draggingKeys навсегда пуст.
+        sl.AddHandler(UIElement.PointerPressedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => _draggingKeys.Add(key)),
+            handledEventsToo: true);
+        sl.AddHandler(UIElement.PointerReleasedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => _draggingKeys.Remove(key)),
+            handledEventsToo: true);
+        sl.AddHandler(UIElement.PointerCaptureLostEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => _draggingKeys.Remove(key)),
+            handledEventsToo: true);
+        sl.AddHandler(UIElement.PointerCanceledEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => _draggingKeys.Remove(key)),
+            handledEventsToo: true);
         Grid.SetColumn(sl, 1); g.Children.Add(sl);
         bars[key] = sl;
 
@@ -330,9 +350,15 @@ public sealed partial class MainWindow : Window
     {
         string key = idx + ":" + vcp;
         if (!bars.TryGetValue(key, out var sl)) return;
-        suppress = true;
-        sl.Value = Math.Clamp(value, 0, 100);
-        suppress = false;
+        // Не двигать slider пока user драгает pointer'ом — иначе throttle-задержанный
+        // Raise со старым значением "прыгнет" против уже смещённого пальца.
+        // Текст справа обновляем всегда — user всё равно хочет видеть подтверждённое значение.
+        if (!_draggingKeys.Contains(key))
+        {
+            suppress = true;
+            sl.Value = Math.Clamp(value, 0, 100);
+            suppress = false;
+        }
         vals[key].Text = value + "%";
     }
 

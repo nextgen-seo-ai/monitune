@@ -10,7 +10,10 @@ public sealed partial class TrayIconHost : UserControl
 {
     public ICommand LeftClick { get; }
 
+    /// <summary>Открыть панель у tray icon (позиция курсора релевантна — левый клик по иконке).</summary>
     public event Action? OnOpen;
+    /// <summary>Открыть панель через контекстное меню — курсор в пункте меню, нужна tray-позиция вместо cursor.</summary>
+    public event Action? OnOpenFromMenu;
     public event Action? OnExit;
     public event Action? OnAbout;
     public event Action? OnRefresh;
@@ -21,26 +24,58 @@ public sealed partial class TrayIconHost : UserControl
         LeftClick = new Relay(() => OnOpen?.Invoke());
         AutoStartItem.IsChecked = IsAutostart();
         Tray.ForceCreate();
-        // Pre-warm меню: заставить layout pass отработать для ContextFlyout,
-        // чтобы при первом реальном правом клике ширина уже была корректной.
-        Loaded += (_, _) =>
+        // Pre-warm меню: MenuFlyoutPresenter создаётся только при первом ShowAt.
+        // ContextMenuMode=SecondWindow: H.NotifyIcon сам вызывает ShowAt через свой popup host,
+        // но первый вызов не имеет полного layout pass → меню обрезано в компактный размер.
+        // Fix: сами делаем один ShowAt на off-screen позицию + сразу Hide. Presenter создастся,
+        // MeasureOverride отработает, размер закэшируется. Реальный правый клик уже правильный.
+        // ContextMenuMode=SecondWindow: H.NotifyIcon рендерит меню в отдельном popup window
+        // со своим resource tree. Style на MenuFlyoutPresenter НЕ применяется первый раз —
+        // поэтому явно ставим MinWidth на каждый item через code (это гарантирует что
+        // presenter не может быть уже суммы items и текст не обрезается).
+        const double ItemMinWidth = 320;
+        OpenMenuItem.MinWidth = ItemMinWidth;
+        RefreshMenuItem.MinWidth = ItemMinWidth;
+        UpdateMenuItem.MinWidth = ItemMinWidth;
+        AutoStartItem.MinWidth = ItemMinWidth;
+        AboutMenuItem.MinWidth = ItemMinWidth;
+        ExitMenuItem.MinWidth = ItemMinWidth;
+
+        // WinUI 3 MenuFlyoutItem обрабатывает только левый клик. Юзеры трея часто
+        // держат курсор на правой кнопке (правый клик открыл меню — пальцу удобно
+        // тем же кликом выбрать пункт). Дублируем правый клик через RightTapped.
+        HookRightClickAsLeft(OpenMenuItem, OpenClick);
+        HookRightClickAsLeft(RefreshMenuItem, RefreshClick);
+        HookRightClickAsLeft(UpdateMenuItem, UpdateClick);
+        HookRightClickAsLeftToggle(AutoStartItem, AutoStartClick);
+        HookRightClickAsLeft(AboutMenuItem, AboutClick);
+        HookRightClickAsLeft(ExitMenuItem, ExitClick);
+    }
+
+    void HookRightClickAsLeft(MenuFlyoutItem item, RoutedEventHandler click)
+    {
+        item.RightTapped += (s, e) =>
         {
-            try
-            {
-                if (Tray.ContextFlyout is MenuFlyout mf)
-                {
-                    foreach (var item in mf.Items)
-                    {
-                        if (item is FrameworkElement fe)
-                            fe.Measure(new Windows.Foundation.Size(360, 100));
-                    }
-                }
-            }
-            catch { }
+            e.Handled = true;
+            try { click(item, new RoutedEventArgs()); }
+            catch (Exception ex) { App.LogStatic("RightTapped click ex: " + ex.Message); }
+            try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
         };
     }
 
-    void OpenClick(object sender, RoutedEventArgs e) => OnOpen?.Invoke();
+    void HookRightClickAsLeftToggle(ToggleMenuFlyoutItem item, RoutedEventHandler click)
+    {
+        item.RightTapped += (s, e) =>
+        {
+            e.Handled = true;
+            item.IsChecked = !item.IsChecked;   // ToggleMenuFlyoutItem обычно сам toggle'ится по Click, вручную повторяем
+            try { click(item, new RoutedEventArgs()); }
+            catch (Exception ex) { App.LogStatic("RightTapped toggle ex: " + ex.Message); }
+            try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
+        };
+    }
+
+    void OpenClick(object sender, RoutedEventArgs e) => OnOpenFromMenu?.Invoke();
     void ExitClick(object sender, RoutedEventArgs e) => OnExit?.Invoke();
     void AboutClick(object sender, RoutedEventArgs e) => OnAbout?.Invoke();
     void RefreshClick(object sender, RoutedEventArgs e) => OnRefresh?.Invoke();

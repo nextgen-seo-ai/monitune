@@ -156,25 +156,21 @@ public class DdcManager
     }
     public void Stop()
     {
-        running = false; signal.Set();
-        try
-        {
-            worker?.Join(1500);
-        }
+        // Быстрый shutdown: ждём worker максимум 300мс (было 1500).
+        // Worker daemon-thread, Windows его убьёт вместе с процессом; DestroyPhysicalMonitor
+        // тоже необязательно — driver освобождает handles на process exit. Оставляем только
+        // сигнал stop чтобы worker не тыкал VCP в middle of shutdown.
+        running = false;
+        try { signal.Set(); } catch { }
+        try { worker?.Join(300); }
         catch { }
+        // Помечаем monitors как Disposed без тяжёлого DestroyPhysicalMonitor —
+        // это блокировало Exit до 200мс на каждый монитор из-за I2C-wait.
         try
         {
             lock (_monitorsLock)
             {
-                foreach (var m in Monitors)
-                {
-                    lock (m.OpLock)
-                    {
-                        m.Disposed = true;
-                        if (m.Handle != IntPtr.Zero) Native.DestroyPhysicalMonitor(m.Handle);
-                        m.Handle = IntPtr.Zero;
-                    }
-                }
+                foreach (var m in Monitors) m.Disposed = true;
             }
         }
         catch { }
@@ -214,6 +210,9 @@ public class DdcManager
             Native.GetMonitorInfo(h, ref mi);
             handles.Add(h); devices.Add(mi.szDevice); return true;
         }, IntPtr.Zero);
+        Log?.Invoke($"  Enumerate: EnumDisplayMonitors нашёл {handles.Count} display(ов): {string.Join(", ", devices)}");
+        if (handles.Count == 0)
+            Log?.Invoke("  Enumerate: 0 мониторов — Windows не видит ни одного дисплея (проверьте Параметры → Дисплей)");
         var list = new List<MonInfo>();
         // eDP-детектор: если у устройства нет physical monitor'а (или он не отвечает по DDC),
         // но outputTechnology=Internal и WMI отдаёт WmiMonitorBrightness — это встроенный
@@ -435,8 +434,31 @@ public class DdcManager
                 Log?.Invoke($"  [{m.ShortId}]: DDC/CI недоступно — пропускаем caps");
                 return;
             }
+            // Read-first: сначала пробуем прочитать VCP напрямую. Если Samsung/подобный
+            // монитор не отвечает на CapabilitiesRequest, но VCP работает — economим 5-6 сек
+            // ожидания SafeCaps. Caps вызываем только если Read fail (нужно понять почему).
+            int bright = SafeRead(m, VCP_BRIGHTNESS);
+            if (m.Disposed) return;
+            int contr = SafeRead(m, VCP_CONTRAST);
+            if (m.Disposed) return;
+
+            if (bright >= 0 || contr >= 0)
+            {
+                // Хотя бы одно значение прочиталось — DDC живой, caps не нужен.
+                m.HasBrightness = bright >= 0;
+                m.HasContrast = contr >= 0;
+                m.Brightness = bright;
+                m.Contrast = contr;
+                Log?.Invoke($"  [{m.ShortId}]: read-first ok B={bright} C={contr} (skip caps)");
+                if (bright >= 0) Raise(IndexOf(m), VCP_BRIGHTNESS, bright);
+                if (contr >= 0) Raise(IndexOf(m), VCP_CONTRAST, contr);
+                return;
+            }
+
+            // Оба Read fail — теперь caps как diagnostic (может показать почему).
+            Log?.Invoke($"  [{m.ShortId}]: оба VCP read fail — пробуем caps как fallback");
             string? caps = SafeCaps(m);
-            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed after SafeCaps"); return; }
+            if (m.Disposed) return;
             if (caps != null)
             {
                 var codes = TopLevelVcp(caps.ToUpperInvariant());
@@ -448,25 +470,22 @@ public class DdcManager
                     m.ProbablyFreeSync = true;
                     Log?.Invoke($"  [{m.ShortId}]: подозрительно мало VCP-кодов ({codes.Count}) — возможно FreeSync/HDR");
                 }
+                // Ещё одна попытка read после caps (вдруг помог инициализировать канал).
+                if (m.HasBrightness)
+                {
+                    int b2 = SafeRead(m, VCP_BRIGHTNESS); m.Brightness = b2;
+                    if (b2 >= 0 && !m.Disposed) Raise(IndexOf(m), VCP_BRIGHTNESS, b2);
+                }
+                if (m.HasContrast && !m.Disposed)
+                {
+                    int c2 = SafeRead(m, VCP_CONTRAST); m.Contrast = c2;
+                    if (c2 >= 0 && !m.Disposed) Raise(IndexOf(m), VCP_CONTRAST, c2);
+                }
             }
             else
             {
-                m.HasBrightness = true; m.HasContrast = true;
-                Log?.Invoke($"  [{m.ShortId}]: caps=null — fallback: пробуем читать VCP напрямую");
-            }
-            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed after caps parse"); return; }
-            if (m.HasBrightness)
-            {
-                int b = SafeRead(m, VCP_BRIGHTNESS); m.Brightness = b;
-                Log?.Invoke($"  [{m.ShortId}]: brightness read = {b}");
-                if (b >= 0 && !m.Disposed) Raise(IndexOf(m), VCP_BRIGHTNESS, b);
-            }
-            if (m.Disposed) { Log?.Invoke($"  [{m.ShortId}]: skip — Disposed before contrast"); return; }
-            if (m.HasContrast)
-            {
-                int c = SafeRead(m, VCP_CONTRAST); m.Contrast = c;
-                Log?.Invoke($"  [{m.ShortId}]: contrast read = {c}");
-                if (c >= 0 && !m.Disposed) Raise(IndexOf(m), VCP_CONTRAST, c);
+                Log?.Invoke($"  [{m.ShortId}]: caps=null И read=-1 — DDC/CI недоступно");
+                m.HasBrightness = false; m.HasContrast = false;
             }
         }
         catch (Exception ex) { Log?.Invoke($"InitOne [{m.ShortId}] ex: {ex.Message}"); }

@@ -57,6 +57,12 @@ public sealed partial class TrayIconHost : UserControl
         HookRightClickAsLeft(AboutMenuItem, AboutClick);
         HookRightClickAsLeft(ExitMenuItem, ExitClick);
 
+        // Первый warmup — при инициализации control (Loaded event).
+        Loaded += (_, _) =>
+        {
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, WarmupContextMenu);
+        };
+
         // При каждом open меню синхронизируем галочку с реальным StartupTaskState —
         // юзер мог включить/выключить автозапуск через Параметры Windows между показами.
         if (Tray.ContextFlyout is MenuFlyout mfOpening)
@@ -89,6 +95,27 @@ public sealed partial class TrayIconHost : UserControl
             catch (Exception ex) { App.LogStatic("RightTapped toggle ex: " + ex.Message); }
             try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
         };
+    }
+
+    /// <summary>Прогреть context-menu presenter: SecondWindow popup инвалидируется
+    /// после DPMS off/on или display topology change. Первый последующий right-click
+    /// заново создаёт presenter → снова компактный размер. Вызываем этот метод из
+    /// display events чтобы юзер не видел обрезанное меню при возврате мониторов.</summary>
+    public void WarmupContextMenu()
+    {
+        try
+        {
+            Tray.ShowContextMenu(new System.Drawing.Point(-100000, -100000));
+            var timer = DispatcherQueue.CreateTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(50);
+            timer.IsRepeating = false;
+            timer.Tick += (_, _) =>
+            {
+                try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
+            };
+            timer.Start();
+        }
+        catch (Exception ex) { App.LogStatic("WarmupContextMenu ex: " + ex.Message); }
     }
 
     void OpenClick(object sender, RoutedEventArgs e) => OnOpenFromMenu?.Invoke();

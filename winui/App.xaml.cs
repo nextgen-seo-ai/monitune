@@ -161,6 +161,11 @@ public partial class App : Application
             {
                 try { _window?.RefreshMonitors(); L("RefreshMonitors after WM_DISPLAYCHANGE"); }
                 catch (Exception ex) { L("RefreshMonitors ex: " + ex); }
+                // BUG10 fix: context-menu presenter пересоздаётся после display topology change
+                // (DPMS off/on, monitor connect/disconnect) → первый последующий right-click
+                // снова обрезан. Re-warmup за 2 сек после Refresh — presenter уже в кэше.
+                try { _trayWindow?.Tray?.WarmupContextMenu(); L("Tray menu warmup after display change"); }
+                catch (Exception ex) { L("Tray warmup ex: " + ex); }
             }), null, 1500, System.Threading.Timeout.Infinite);
         };
         _displayEvents.OnSystemResumed += () =>
@@ -171,6 +176,12 @@ public partial class App : Application
                 try { UpdateService.CheckInBackground(); L("update check after resume"); }
                 catch (Exception ex) { L("update check after resume ex: " + ex.Message); }
             }
+            // BUG10 fix: аналогично для sleep→wake — прогреваем меню.
+            _ui?.TryEnqueue(() =>
+            {
+                try { _trayWindow?.Tray?.WarmupContextMenu(); L("Tray menu warmup after resume"); }
+                catch (Exception ex) { L("Tray warmup after resume ex: " + ex); }
+            });
         };
         _displayEvents.Install();
 

@@ -17,7 +17,7 @@
   <Identity
     Name="MonitorTune"
     Publisher="CN=MonitorTune, O=nextgen-seo-ai, C=RU"
-    Version="1.1.5.0" />
+    Version="1.1.6.0" />
 
   <mp:PhoneIdentity PhoneProductId="BF0AE75C-4C77-4E02-BCA4-59DDCC7DE641" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -28,7 +28,7 @@
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26226.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
 
   <Resources>

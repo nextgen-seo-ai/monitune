@@ -23,6 +23,12 @@ public sealed partial class TrayIconHost : UserControl
         InitializeComponent();
         LeftClick = new Relay(() => OnOpen?.Invoke());
         AutoStartItem.IsChecked = IsAutostart();
+        // Фиксированный GUID для tray icon — Windows tracks позицию иконки в трее
+        // через NIF_GUID (по Guid), а не по пути exe. Без этого при каждом MSIX-update
+        // путь exe меняется (WindowsApps\MonitorTune_X.X.X.X_...) → Windows считает
+        // это новой иконкой и роняет её в overflow "стрелка вверх". Юзер должен
+        // вручную перетаскивать после каждого обновления. С GUID — position preserved.
+        Tray.Id = new Guid("CE7F9D62-89B4-4A4E-9D3A-4B7C5A2F1E6E");
         Tray.ForceCreate();
         // Pre-warm меню: MenuFlyoutPresenter создаётся только при первом ShowAt.
         // ContextMenuMode=SecondWindow: H.NotifyIcon сам вызывает ShowAt через свой popup host,

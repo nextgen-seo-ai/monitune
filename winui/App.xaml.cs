@@ -310,17 +310,17 @@ public partial class App : Application
         L($"ShowFlyout useTrayPosition={useTrayPosition}");
         if (_window == null) return;
         Native.POINT pt;
+        Native.GetCursorPos(out pt);
         if (useTrayPosition)
         {
             // Вызов через "Открыть панель" из контекстного меню — курсор в позиции пункта меню,
-            // не на tray icon. Используем правый нижний угол WorkingArea — стандартная позиция
-            // system tray в Windows 11. Окно окажется у трея вне зависимости где сейчас курсор.
-            var area = Microsoft.UI.Windowing.DisplayArea.Primary.WorkArea;
+            // но menu показан на том же дисплее где tray icon. Значит cursor screen = tray screen.
+            // DisplayArea.GetFromPoint возвращает правильный display (не hardcoded Primary),
+            // работает и с multi-monitor + secondary-only taskbar.
+            var cursorPoint = new Windows.Graphics.PointInt32(pt.X, pt.Y);
+            var area = Microsoft.UI.Windowing.DisplayArea.GetFromPoint(
+                cursorPoint, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
             pt = new Native.POINT { X = area.X + area.Width - 24, Y = area.Y + area.Height };
-        }
-        else
-        {
-            Native.GetCursorPos(out pt);
         }
         _window.ShowNearIcon(pt.X, pt.Y);
     }

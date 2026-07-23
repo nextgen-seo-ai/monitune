@@ -283,6 +283,22 @@ public sealed partial class MainWindow : Window
         sl.AddHandler(UIElement.PointerCanceledEvent,
             new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => _draggingKeys.Remove(key)),
             handledEventsToo: true);
+        // Клавиатура: Arrow/PageUp/PageDown/Home/End тоже двигают slider через RangeBase,
+        // ValueChanged fires — но без PointerPressed → _draggingKeys пуст → тот же прыжок.
+        // KeyDown → Add, KeyUp → Remove. Плюс LostFocus как safety-net.
+        sl.KeyDown += (_, _) => _draggingKeys.Add(key);
+        sl.KeyUp += (_, _) => _draggingKeys.Remove(key);
+        sl.LostFocus += (_, _) => _draggingKeys.Remove(key);
+        // PointerWheel на slider тоже меняет value — блокируем на 500ms после каждого scroll.
+        sl.PointerWheelChanged += (_, _) =>
+        {
+            _draggingKeys.Add(key);
+            var wheelTimer = DispatcherQueue.CreateTimer();
+            wheelTimer.Interval = TimeSpan.FromMilliseconds(500);
+            wheelTimer.IsRepeating = false;
+            wheelTimer.Tick += (_, _) => _draggingKeys.Remove(key);
+            wheelTimer.Start();
+        };
         Grid.SetColumn(sl, 1); g.Children.Add(sl);
         bars[key] = sl;
 
@@ -350,10 +366,14 @@ public sealed partial class MainWindow : Window
     {
         string key = idx + ":" + vcp;
         if (!bars.TryGetValue(key, out var sl)) return;
-        // Не двигать slider пока user драгает pointer'ом — иначе throttle-задержанный
-        // Raise со старым значением "прыгнет" против уже смещённого пальца.
-        // Текст справа обновляем всегда — user всё равно хочет видеть подтверждённое значение.
-        if (!_draggingKeys.Contains(key))
+        // Пока ХОТЬ ОДИН slider занят user'ом (pointer или клавиатура),
+        // не двигаем НИ ОДИН slider из background Raise'ов. Иначе throttle-задержанный
+        // Raise со старым значением "прыгает" против уже смещённого:
+        // — на текущем slider'е (базовый anti-jump)
+        // — на зеркале при SyncAllMonitors=true (второй монитор)
+        // — на паре при LinkBrightnessContrast=true (Contrast если крутим Brightness)
+        // Текст справа обновляем всегда — user хочет видеть подтверждённое значение.
+        if (_draggingKeys.Count == 0)
         {
             suppress = true;
             sl.Value = Math.Clamp(value, 0, 100);
@@ -439,6 +459,7 @@ public sealed partial class MainWindow : Window
             bars.Clear();
             vals.Clear();
             linkBtns.Clear();
+            _draggingKeys.Clear();   // stale keys — Slider объекты уничтожены
             CardsHost.Children.Clear();
             BuildCards();
             ddc.Rescan();

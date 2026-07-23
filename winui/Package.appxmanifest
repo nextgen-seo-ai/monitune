@@ -17,7 +17,7 @@
   <Identity
     Name="MonitorTune"
     Publisher="CN=MonitorTune, O=nextgen-seo-ai, C=RU"
-    Version="1.1.1.0" />
+    Version="1.1.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="BF0AE75C-4C77-4E02-BCA4-59DDCC7DE641" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

@@ -400,12 +400,25 @@ public partial class App : Application
     void Exit()
     {
         L("Exit");
-        _displayEvents?.Dispose();
-        _hotkeys?.Uninstall();
-        _keepAwake?.Dispose();
-        _night?.Stop();
-        _ddc?.Stop();
-        Microsoft.UI.Xaml.Application.Current.Exit();
+        // Tray сначала: предотвращает COMException "Invalid window handle" когда
+        // юзер клацает по иконке между Exit() и физической смертью процесса
+        // (Application.Current.Exit() не всегда killит процесс сразу, tray HWND
+        // остаётся живым и H.NotifyIcon пытается показать меню на destroyed AppWindow).
+        try { _trayWindow?.Tray?.DisposeAll(); } catch { }
+        try { _trayWindow?.Close(); } catch { }
+        try { _displayEvents?.Dispose(); } catch { }
+        try { _hotkeys?.Uninstall(); } catch { }
+        try { _keepAwake?.Dispose(); } catch { }
+        try { _night?.Stop(); } catch { }
+        try { _ddc?.Stop(); } catch { }
+        try { Microsoft.UI.Xaml.Application.Current.Exit(); } catch { }
+        // Fallback hard-kill: если Application.Exit() не завершил процесс за 500мс
+        // (WinUI shutdown pipeline может подвиснуть), убиваем принудительно.
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            await System.Threading.Tasks.Task.Delay(500);
+            Environment.Exit(0);
+        });
     }
 
 }

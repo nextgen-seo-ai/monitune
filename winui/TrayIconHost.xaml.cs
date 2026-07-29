@@ -99,6 +99,12 @@ public sealed partial class TrayIconHost : UserControl
         };
     }
 
+    /// <summary>Убить tray icon явно: предотвращает crash от post-Exit click.</summary>
+    public void DisposeAll()
+    {
+        try { Tray?.Dispose(); } catch { }
+    }
+
     /// <summary>Прогреть context-menu presenter: SecondWindow popup инвалидируется
     /// после DPMS off/on или display topology change. Первый последующий right-click
     /// заново создаёт presenter → снова компактный размер. Вызываем этот метод из

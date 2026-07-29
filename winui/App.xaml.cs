@@ -215,14 +215,20 @@ public partial class App : Application
         // Crash reporter — пишет в LocalCache/crashes/*.json при UnhandledException.
         CrashReporter.Install();
 
+        // Подписка на UpdateAvailable — ВСЕГДА, независимо от AutoCheckUpdates.
+        // Раньше она жила внутри if (AutoCheckUpdates): при выключенной автопроверке
+        // ручные пути ("Проверить обновления" в трее и кнопка в Настройках) находили
+        // новую версию, но результат было некому показать — ни тоста, ни смены пункта меню.
+        // Настройка должна отключать только ФОНОВЫЕ проверки, а не ручные.
+        UpdateService.UpdateAvailable += info => _ui!.TryEnqueue(() =>
+        {
+            try { _trayWindow?.Tray?.ShowUpdateAvailable(info); }
+            catch (Exception ex) { L("ShowUpdateAvailable ex: " + ex); }
+        });
+
         // Auto-update check — silent, background, tray notification при находке.
         if (SettingsStore.Current.AutoCheckUpdates)
         {
-            UpdateService.UpdateAvailable += info => _ui!.TryEnqueue(() =>
-            {
-                try { _trayWindow?.Tray?.ShowUpdateAvailable(info); }
-                catch (Exception ex) { L("ShowUpdateAvailable ex: " + ex); }
-            });
             UpdateService.CheckInBackground();
             // Периодическая проверка — приложение может жить в трее сутками,
             // без этого узнало бы про обновления только на следующем рестарте.
@@ -414,12 +420,61 @@ public partial class App : Application
         if (action == "night_mode") { _night?.Toggle(); return; }
         byte vcp = action.StartsWith("brightness") ? DdcManager.VCP_BRIGHTNESS : DdcManager.VCP_CONTRAST;
         int delta = action.EndsWith("_up") ? step : -step;
-        if (_ddc.Monitors.Count == 0) return;
-        var m = _ddc.Monitors[0];
+
+        int idx = PickHotkeyTarget(vcp);
+        if (idx < 0)
+        {
+            L($"OnHotkey {action}: нет монитора поддерживающего vcp=0x{vcp:X}");
+            return;
+        }
+        var m = _ddc.Monitors[idx];
         int cur = vcp == DdcManager.VCP_BRIGHTNESS ? m.Brightness : m.Contrast;
         if (cur < 0) cur = 50;
         int next = Math.Clamp(cur + delta, 0, 100);
-        _window.ApplyValue(0, vcp, next, fromUser: true);
+        L($"OnHotkey {action} → [{m.ShortId}] {cur}→{next}");
+        _window.ApplyValue(idx, vcp, next, fromUser: true);
+    }
+
+    /// <summary>Выбрать монитор для горячей клавиши.
+    /// Раньше здесь был жёсткий Monitors[0]: список отсортирован по имени устройства,
+    /// поэтому на ноутбуке первым почти всегда оказывался встроенный экран (\\.\DISPLAY1),
+    /// а у него нет контраста вообще — хоткеи контраста молча ничего не делали.
+    /// Теперь: монитор под курсором, если он умеет нужный VCP; иначе первый умеющий.</summary>
+    int PickHotkeyTarget(byte vcp)
+    {
+        var mons = _ddc!.Monitors;
+        if (mons.Count == 0) return -1;
+
+        bool Supports(MonInfo x) =>
+            vcp == DdcManager.VCP_BRIGHTNESS
+                ? x.HasBrightness
+                // Контраст: eDP управляется через WMI, где контраста не существует.
+                : x.HasContrast && !x.IsEdp;
+
+        // 1) Монитор под курсором — самое предсказуемое поведение для юзера.
+        try
+        {
+            if (Native.GetCursorPos(out var pt))
+            {
+                IntPtr hmon = Native.MonitorFromPoint(pt, Native.MONITOR_DEFAULTTONEAREST);
+                if (hmon != IntPtr.Zero)
+                {
+                    var mi = new Native.MONITORINFOEX { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Native.MONITORINFOEX>() };
+                    if (Native.GetMonitorInfo(hmon, ref mi))
+                    {
+                        for (int i = 0; i < mons.Count; i++)
+                            if (mons[i].Device == mi.szDevice && Supports(mons[i])) return i;
+                    }
+                }
+            }
+        }
+        catch (Exception ex) { L("PickHotkeyTarget cursor lookup ex: " + ex.Message); }
+
+        // 2) Fallback: первый монитор, который реально поддерживает этот параметр.
+        for (int i = 0; i < mons.Count; i++)
+            if (Supports(mons[i])) return i;
+
+        return -1;
     }
 
     void Exit()

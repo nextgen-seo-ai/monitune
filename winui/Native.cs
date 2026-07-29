@@ -77,6 +77,10 @@ internal static class Native
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out POINT pt);
 
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]

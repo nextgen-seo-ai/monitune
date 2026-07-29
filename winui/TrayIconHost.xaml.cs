@@ -350,11 +350,34 @@ public sealed partial class TrayIconHost : UserControl
     async void UpdateClick(object sender, RoutedEventArgs e)
     {
         var info = _pendingUpdate;
-        if (info == null) return;
         // Двойной клик "Обновить до X" в трее или toast → защита от параллельного download.
         if (_updateInProgress)
         {
             App.LogStatic("UpdateClick: уже идёт download — пропуск повторного клика");
+            return;
+        }
+        // Если update ещё не найден (default "Проверить обновления") — делаем force check.
+        if (info == null)
+        {
+            _updateInProgress = true;
+            try
+            {
+                App.LogStatic("User clicked 'Проверить обновления' — force check");
+                var found = await UpdateService.CheckAsync();
+                if (found == null)
+                {
+                    ShowError("У вас уже последняя версия MoniTune " + UpdateService.CurrentVersion());
+                }
+                // если found != null — CheckAsync триггернул UpdateAvailable event →
+                // ShowUpdateAvailable → UpdateMenuItem.Text заменится на "Обновить до X.Y.Z"
+                // → следующий клик уже пойдёт в install path (info != null).
+            }
+            catch (Exception ex)
+            {
+                App.LogStatic("Manual check ex: " + ex);
+                ShowError("Не удалось проверить обновления: " + ex.Message);
+            }
+            finally { _updateInProgress = false; }
             return;
         }
         _updateInProgress = true;

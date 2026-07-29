@@ -39,8 +39,7 @@
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Refresh"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem x:Name="UpdateMenuItem"
-                                Text="Обновить приложение"
-                                Visibility="Collapsed"
+                                Text="Проверить обновления"
                                 Click="UpdateClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Download"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>

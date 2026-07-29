@@ -393,7 +393,7 @@ public static class UpdateService
 
     internal static string ManifestPublicKeyForVerify => ManifestEd25519PublicKeyBase64;
 
-    static string CurrentVersion()
+    public static string CurrentVersion()
     {
         try
         {

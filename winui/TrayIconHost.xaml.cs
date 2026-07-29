@@ -146,14 +146,26 @@ public sealed partial class TrayIconHost : UserControl
 
             using (var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create))
             {
-                // 1) Лог приложения (текущий + rotated .old если есть)
+                // 1) Лог приложения — используем ТОТ ЖЕ path что App.LOG (запись),
+                // иначе на MSIX packaged app path через LocalCacheFolder может не совпасть
+                // с виртуализированным путём Environment.SpecialFolder.LocalApplicationData
+                // → File.Exists=false → лог не попадает в zip (regression в v1.1.9/1.1.10).
                 try
                 {
-                    var logDir = Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path;
-                    var logPath = System.IO.Path.Combine(logDir, "MonitorTune.log");
-                    if (System.IO.File.Exists(logPath)) CopyFileToZip(zip,logPath, "MonitorTune.log");
+                    var logPath = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "MonitorTune.log");
+                    if (System.IO.File.Exists(logPath)) CopyFileToZip(zip, logPath, "MonitorTune.log");
                     var oldLog = logPath + ".old";
-                    if (System.IO.File.Exists(oldLog)) CopyFileToZip(zip,oldLog, "MonitorTune.log.old");
+                    if (System.IO.File.Exists(oldLog)) CopyFileToZip(zip, oldLog, "MonitorTune.log.old");
+
+                    // Fallback: если MSIX virtualization редиректит write в другой каталог,
+                    // попробуем ещё LocalCache\Local — распространённый virtualized path.
+                    var altLog = System.IO.Path.Combine(
+                        Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path,
+                        "Local", "MonitorTune.log");
+                    if (System.IO.File.Exists(altLog) && !System.IO.File.Exists(logPath))
+                        CopyFileToZip(zip, altLog, "MonitorTune.log");
                 }
                 catch (Exception ex) { App.LogStatic("diagnostic: log copy ex: " + ex.Message); }
 

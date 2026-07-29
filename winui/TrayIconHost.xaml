@@ -46,6 +46,9 @@
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
                 <ToggleMenuFlyoutItem x:Name="AutoStartItem" Text="Запускать с Windows" Click="AutoStartClick"/>
+                <MenuFlyoutItem x:Name="DiagnosticMenuItem" Text="Собрать диагностику" Click="DiagnosticClick">
+                    <MenuFlyoutItem.Icon><SymbolIcon Symbol="Save"/></MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
                 <MenuFlyoutItem x:Name="AboutMenuItem" Text="О программе" Click="AboutClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Help"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>

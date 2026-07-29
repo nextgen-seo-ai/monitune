@@ -484,8 +484,14 @@ public class DdcManager
             }
             else
             {
-                Log?.Invoke($"  [{m.ShortId}]: caps=null И read=-1 — DDC/CI недоступно");
-                m.HasBrightness = false; m.HasContrast = false;
+                // Read-first fail + caps=null: НЕ маркируем как permanently unavailable
+                // (transient DDC failure — monitor busy, DP AUX contention, docker throttle).
+                // Optimistic: HasBrightness/Contrast = true, слайдеры активны. Каждый
+                // SafeWrite сам проверит успех и покажет "?" при реальной ошибке.
+                // Иначе один trace transient глушит слайдер до app restart, даже Refresh
+                // не помогает (снова caps=null → снова HasB=false → "n/a" в UI).
+                Log?.Invoke($"  [{m.ShortId}]: caps=null И read=-1 — optimistic, оставляем слайдеры активными");
+                m.HasBrightness = true; m.HasContrast = true;
             }
         }
         catch (Exception ex) { Log?.Invoke($"InitOne [{m.ShortId}] ex: {ex.Message}"); }

@@ -44,6 +44,7 @@ public sealed partial class TrayIconHost : UserControl
         RefreshMenuItem.MinWidth = ItemMinWidth;
         UpdateMenuItem.MinWidth = ItemMinWidth;
         AutoStartItem.MinWidth = ItemMinWidth;
+        DiagnosticMenuItem.MinWidth = ItemMinWidth;
         AboutMenuItem.MinWidth = ItemMinWidth;
         ExitMenuItem.MinWidth = ItemMinWidth;
 
@@ -54,6 +55,7 @@ public sealed partial class TrayIconHost : UserControl
         HookRightClickAsLeft(RefreshMenuItem, RefreshClick);
         HookRightClickAsLeft(UpdateMenuItem, UpdateClick);
         HookRightClickAsLeftToggle(AutoStartItem, AutoStartClick);
+        HookRightClickAsLeft(DiagnosticMenuItem, DiagnosticClick);
         HookRightClickAsLeft(AboutMenuItem, AboutClick);
         HookRightClickAsLeft(ExitMenuItem, ExitClick);
 
@@ -116,6 +118,115 @@ public sealed partial class TrayIconHost : UserControl
             timer.Start();
         }
         catch (Exception ex) { App.LogStatic("WarmupContextMenu ex: " + ex.Message); }
+    }
+
+    static void CopyFileToZip(System.IO.Compression.ZipArchive zip, string sourcePath, string entryName)
+    {
+        var entry = zip.CreateEntry(entryName, System.IO.Compression.CompressionLevel.Optimal);
+        using var src = System.IO.File.OpenRead(sourcePath);
+        using var dst = entry.Open();
+        src.CopyTo(dst);
+    }
+
+    void DiagnosticClick(object sender, RoutedEventArgs e)
+    {
+        // Собрать диагностический zip на Desktop: log + системная инфа + crash-репорты.
+        // Ничего никуда не отправляется — юзер сам решает кому и как передать файл.
+        try
+        {
+            var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var stamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss");
+            var zipPath = System.IO.Path.Combine(desktop, $"MoniTune-diagnostic-{stamp}.zip");
+
+            using (var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                // 1) Лог приложения (текущий + rotated .old если есть)
+                try
+                {
+                    var logDir = Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path;
+                    var logPath = System.IO.Path.Combine(logDir, "MonitorTune.log");
+                    if (System.IO.File.Exists(logPath)) CopyFileToZip(zip,logPath, "MonitorTune.log");
+                    var oldLog = logPath + ".old";
+                    if (System.IO.File.Exists(oldLog)) CopyFileToZip(zip,oldLog, "MonitorTune.log.old");
+                }
+                catch (Exception ex) { App.LogStatic("diagnostic: log copy ex: " + ex.Message); }
+
+                // 2) Crash dumps (последние 10)
+                try
+                {
+                    var crashDir = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "crashes");
+                    if (System.IO.Directory.Exists(crashDir))
+                    {
+                        foreach (var f in System.IO.Directory.GetFiles(crashDir, "*.json")
+                            .OrderByDescending(p => System.IO.File.GetLastWriteTime(p))
+                            .Take(10))
+                        {
+                            CopyFileToZip(zip,f, "crashes/" + System.IO.Path.GetFileName(f));
+                        }
+                    }
+                }
+                catch (Exception ex) { App.LogStatic("diagnostic: crashes copy ex: " + ex.Message); }
+
+                // 3) Системная инфа
+                try
+                {
+                    var entry = zip.CreateEntry("system-info.txt");
+                    using var sw = new System.IO.StreamWriter(entry.Open());
+                    var v = Windows.ApplicationModel.Package.Current.Id.Version;
+                    sw.WriteLine($"MoniTune version: {v.Major}.{v.Minor}.{v.Build}.{v.Revision}");
+                    sw.WriteLine($"Timestamp: {DateTime.Now:o}");
+                    sw.WriteLine($"OS: {Environment.OSVersion}");
+                    sw.WriteLine($"Machine .NET: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
+                    sw.WriteLine($"Process arch: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
+                    sw.WriteLine($"OS arch: {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}");
+                    sw.WriteLine($"UI culture: {System.Globalization.CultureInfo.CurrentUICulture.Name}");
+                    sw.WriteLine($"Package family: {Windows.ApplicationModel.Package.Current.Id.FamilyName}");
+                    sw.WriteLine();
+                    sw.WriteLine("=== Мониторы (EnumDisplayMonitors) ===");
+                    try
+                    {
+                        Native.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr h, IntPtr hdc, ref Native.RECT r, IntPtr d) =>
+                        {
+                            var mi = new Native.MONITORINFOEX { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Native.MONITORINFOEX>() };
+                            Native.GetMonitorInfo(h, ref mi);
+                            sw.WriteLine($"  {mi.szDevice}  ({r.right - r.left}x{r.bottom - r.top})");
+                            return true;
+                        }, IntPtr.Zero);
+                    }
+                    catch (Exception ex) { sw.WriteLine("  EnumDisplayMonitors ex: " + ex.Message); }
+                    sw.WriteLine();
+                    sw.WriteLine("=== eDP WMI ===");
+                    sw.WriteLine($"  Available: {EdpBrightnessService.IsAvailable()}");
+                    try
+                    {
+                        var levels = EdpBrightnessService.GetSupportedLevels();
+                        if (levels != null) sw.WriteLine($"  Supported levels ({levels.Length}): {string.Join(",", levels)}");
+                    }
+                    catch { }
+                }
+                catch (Exception ex) { App.LogStatic("diagnostic: system-info ex: " + ex.Message); }
+            }
+
+            App.LogStatic($"diagnostic: сохранён {zipPath}");
+            ShowError($"Диагностика собрана: {System.IO.Path.GetFileName(zipPath)} на Рабочем столе. Отправьте файл разработчику.");
+            // Открыть Проводник и выделить файл — юзер сразу видит куда.
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{zipPath}\"",
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex) { App.LogStatic("diagnostic: open explorer ex: " + ex.Message); }
+        }
+        catch (Exception ex)
+        {
+            App.LogStatic("DiagnosticClick ex: " + ex);
+            ShowError("Не удалось собрать диагностику: " + ex.Message);
+        }
     }
 
     void OpenClick(object sender, RoutedEventArgs e) => OnOpenFromMenu?.Invoke();

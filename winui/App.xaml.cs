@@ -39,6 +39,17 @@ public partial class App : Application
         return t;
     }
 
+    /// <summary>Версия пакета для маркера сессии в логе. Не бросает в unpackaged-сборке.</summary>
+    static string AppVersionString()
+    {
+        try
+        {
+            var v = Windows.ApplicationModel.Package.Current.Id.Version;
+            return $"v{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+        }
+        catch { return "v?"; }
+    }
+
     static int _writesSinceCheck = 0;
     static void CheckRotation()
     {
@@ -93,7 +104,21 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        try { System.IO.File.Delete(LOG); } catch { }
+        // Ротация вместо удаления: лог предыдущей сессии переезжает в .old и попадает
+        // в диагностический zip. Раньше здесь был File.Delete(LOG) — из-за этого сессия,
+        // в которой случился баг, стиралась при следующем старте (в т.ч. при рестарте
+        // после auto-update), и юзер собирал диагностику с пустым логом.
+        try
+        {
+            if (System.IO.File.Exists(LOG))
+            {
+                try { if (System.IO.File.Exists(LOG_OLD)) System.IO.File.Delete(LOG_OLD); } catch { }
+                System.IO.File.Move(LOG, LOG_OLD);
+            }
+        }
+        catch { /* если файл занят — просто продолжим дописывать в текущий */ }
+
+        L("=== session start === " + AppVersionString() + " pid=" + Environment.ProcessId);
         L("OnLaunched");
         AppDomain.CurrentDomain.UnhandledException += (s, e) => L("UNHANDLED: " + e.ExceptionObject);
         UnhandledException += (s, e) => { L("XAML UNHANDLED: " + e.Exception); e.Handled = true; };

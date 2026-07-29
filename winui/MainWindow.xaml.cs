@@ -147,7 +147,8 @@ public sealed partial class MainWindow : Window
                 string reason = m.DisplayLink
                     ? "DisplayLink адаптер — управление яркостью через DDC/CI не передаётся"
                     : m.OutputTechnology == OutputTech.Internal
-                        ? "Встроенный дисплей — WMI отдал не удалось прочитать. Обновите драйвер видеокарты."
+                        ? "Встроенный дисплей: Windows не отдаёт управление яркостью через WMI. "
+                          + "Обновите драйвер видеокарты и проверьте, что служба «Display Brightness Service» не отключена."
                         : "Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)";
                 var unavailBanner = new Border
                 {
@@ -222,6 +223,14 @@ public sealed partial class MainWindow : Window
 
     static Border? BuildStatusBanner(MonInfo m)
     {
+        // Встроенные панели ноутбуков (eDP) физически не имеют ни канала DDC/CI, ни OSD —
+        // Enumerate специально ставит им DdcSupported=false. Показывать им caution-баннер
+        // "не отвечает по DDC/CI, включите DDC/CI в экранном меню" бессмысленно и пугает:
+        // юзер видит предупреждение над РАБОЧИМ WMI-слайдером яркости.
+        // Гейтим по OutputTechnology (а не по IsEdp) — иначе при недоступном WMI
+        // (IsEdp=false, tech=Internal) юзер получал два противоречащих баннера подряд.
+        if (m.OutputTechnology == OutputTech.Internal) return null;
+
         string? msg = null;
         if (m.DisplayLink)
             msg = "Монитор подключён через USB-адаптер (DisplayLink). Управление яркостью по DDC/CI недоступно.";

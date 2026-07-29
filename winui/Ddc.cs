@@ -553,7 +553,7 @@ public class DdcManager
                 RespectSuspension(m);
                 // Для Samsung + DP базовые 4 попытки часто мало (капризный DDC/CI-канал).
                 int attempts = (m.WriteGapMs >= 200) ? 6 : 4;
-                int val = ReadRetry(m.Handle, vcp, attempts);
+                int val = ReadRetry(m.Handle, vcp, attempts, out int maxRaw);
                 if (val < 0)
                 {
                     int err = Marshal.GetLastWin32Error();
@@ -566,12 +566,30 @@ public class DdcManager
                     m.Handle = IntPtr.Zero;
                     if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
                     {
-                        val = ReadRetry(m.Handle, vcp, attempts);
-                        if (val >= 0) Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: retry after reopen ok val={val}");
+                        val = ReadRetry(m.Handle, vcp, attempts, out maxRaw);
+                        if (val >= 0) Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: retry after reopen ok raw={val}/{maxRaw}");
                         else Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: reopen ok но чтение всё равно fail");
                     }
                 }
-                return val;
+                if (val < 0) return -1;
+
+                // Запоминаем реальную шкалу монитора и приводим значение к процентам.
+                // До этого фикса max нигде не сохранялся: BrightnessMax/ContrastMax вечно
+                // оставались 100, поэтому на мониторе со шкалой 0..255 чтение отдавало
+                // сырые 0..255 (UI клампил в 100%), а запись слала процент как raw.
+                if (maxRaw > 0)
+                {
+                    if (vcp == VCP_BRIGHTNESS) m.BrightnessMax = maxRaw;
+                    else if (vcp == VCP_CONTRAST) m.ContrastMax = maxRaw;
+                }
+                int scale = vcp == VCP_BRIGHTNESS ? m.BrightnessMax : m.ContrastMax;
+                if (scale <= 0) scale = 100;
+                int percent = (int)Math.Round(val * 100.0 / scale);
+                if (percent < 0) percent = 0;
+                if (percent > 100) percent = 100;
+                if (scale != 100)
+                    Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: raw={val}/{scale} → {percent}%");
+                return percent;
             }
         }
         catch (Exception ex) { Log?.Invoke($"SafeRead '{m.Name}' vcp=0x{vcp:X} ex: {ex.Message}"); return -1; }
@@ -745,6 +763,8 @@ public class DdcManager
                     if (Native.GetVCPFeatureAndVCPFeatureReply(m.Handle, vcp, IntPtr.Zero, out uint cur, out uint mx))
                     {
                         int cm = mx == 0 ? scaleMax : (int)mx;
+                        // Verify — ещё один источник актуального max, запоминаем его.
+                        if (mx > 0) { if (vcp == VCP_BRIGHTNESS) m.BrightnessMax = (int)mx; else m.ContrastMax = (int)mx; }
                         int gotPercent = (int)Math.Round(cur * 100.0 / cm);
                         if (Math.Abs(gotPercent - val) > 5)
                         {
@@ -873,12 +893,21 @@ public class DdcManager
         return res;
     }
     static bool IsHex(char c) => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
-    int ReadRetry(IntPtr h, byte vcp, int attempts)
+    /// <summary>Прочитать VCP. Возвращает СЫРОЕ значение (не проценты) и отдаёт max через out.
+    /// max нужен обязательно: у части мониторов (Eizo, NEC, некоторые Dell) шкала не 0..100,
+    /// а 0..255 или иная. Без нормализации UI показывал бы 200%, а запись 50% слала бы raw 50
+    /// вместо 127 — то есть яркость уезжала бы в ~20%.</summary>
+    int ReadRetry(IntPtr h, byte vcp, int attempts, out int max)
     {
+        max = 0;
         int[] waits = { 120, 250, 450, 700, 1000, 1100, 1100, 1100 };
         for (int i = 0; i < attempts; i++)
         {
-            if (Native.GetVCPFeatureAndVCPFeatureReply(h, vcp, IntPtr.Zero, out uint cur, out uint _)) return (int)cur;
+            if (Native.GetVCPFeatureAndVCPFeatureReply(h, vcp, IntPtr.Zero, out uint cur, out uint mx))
+            {
+                max = (int)mx;
+                return (int)cur;
+            }
             Thread.Sleep(waits[Math.Min(i, waits.Length - 1)]);
         }
         return -1;

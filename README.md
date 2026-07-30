@@ -1,6 +1,6 @@
 # MoniTune
 
-**[nextgen-seo-ai.github.io](https://nextgen-seo-ai.github.io/)** · [Документация](https://nextgen-seo-ai.github.io/faq.html) · [Скачать последнюю версию](https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe)
+**[nextgen-seo-ai.github.io/monitune](https://nextgen-seo-ai.github.io/monitune/)** · [Скачать последнюю версию](https://github.com/nextgen-seo-ai/monitune/releases/latest/download/MonitorTune-Setup.exe)
 
 Утилита для Windows 11 — управление яркостью и контрастностью внешних мониторов через DDC/CI, а также яркостью встроенных дисплеев ноутбуков (eDP) через WMI.
 
@@ -97,12 +97,3 @@ Downgrade заблокирован по-умолчанию — установк�
 - `KeepAwakeService.cs` — SetThreadExecutionState + SendInput
 - `UpdateService.cs` — auto-update с Ed25519 verify + WinVerifyTrust
 - `CrashReporter.cs` — UnhandledException handler
-
-## Сайт
-
-Страницы проекта живут в отдельном репозитории
-[nextgen-seo-ai.github.io](https://github.com/nextgen-seo-ai/nextgen-seo-ai.github.io) и
-публикуются на https://nextgen-seo-ai.github.io/.
-
-Папка `docs/` здесь содержит только заглушки-переадресации со старых адресов
-`/monitune/*` на новые. Править содержимое сайта нужно в том репозитории.

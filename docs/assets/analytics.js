@@ -17,12 +17,37 @@
 
   // Корень сайта вычисляем от собственного пути, чтобы ссылка работала
   // и со вложенных страниц (/stats/), и при открытии файлов локально
-  var POLICY_URL = (function () {
+  var SITE_ROOT = (function () {
     var self = document.currentScript;
     var src = self && self.src ? self.src : '';
     var cut = src.indexOf('assets/analytics.js');
-    return (cut > -1 ? src.slice(0, cut) : '') + 'privacy.html';
+    return cut > -1 ? src.slice(0, cut) : '';
   })();
+
+  // Язык баннера берём у самой страницы: английские страницы лежат в /en/
+  // и объявляют lang="en". Без этого англоязычный посетитель видел бы
+  // русские кнопки, хотя политика велит нажать «Allow».
+  var IS_RU = (document.documentElement.getAttribute('lang') || 'ru')
+    .slice(0, 2).toLowerCase() === 'ru';
+
+  var POLICY_URL = SITE_ROOT + (IS_RU ? 'privacy.html' : 'en/privacy.html');
+
+  var TEXT = IS_RU ? {
+    body: 'Разрешить счётчик посещений Google Analytics? Он помогает понять, какие разделы ' +
+          'документации читают, и ставит cookie. Без вашего согласия счётчик не загружается. ',
+    policy: 'Политика конфиденциальности',
+    accept: 'Разрешить',
+    decline: 'Отказаться',
+    label: 'Согласие на аналитику'
+  } : {
+    body: 'Allow the Google Analytics visit counter? It helps us see which parts of the ' +
+          'documentation people read, and it sets a cookie. Without your consent the counter ' +
+          'is not loaded. ',
+    policy: 'Privacy policy',
+    accept: 'Allow',
+    decline: 'Decline',
+    label: 'Analytics consent'
+  };
 
   // Заглушка тоже подходит под формат Measurement ID, поэтому исключаем её отдельно
   var configured = GA_ID !== GA_PLACEHOLDER && /^G-[A-Z0-9]{6,}$/.test(GA_ID);
@@ -144,26 +169,23 @@
     banner.className = 'mt-consent';
     banner.setAttribute('role', 'dialog');
     banner.setAttribute('aria-live', 'polite');
-    banner.setAttribute('aria-label', 'Согласие на аналитику');
+    banner.setAttribute('aria-label', TEXT.label);
 
     var text = document.createElement('p');
-    text.innerHTML =
-      'Разрешить счётчик посещений Google Analytics? Он помогает понять, какие разделы ' +
-      'документации читают, и ставит cookie. Без вашего согласия счётчик не загружается. ' +
-      '<a href="' + POLICY_URL + '">Политика конфиденциальности</a>.';
+    text.innerHTML = TEXT.body + '<a href="' + POLICY_URL + '">' + TEXT.policy + '</a>.';
 
     var actions = document.createElement('div');
     actions.className = 'mt-consent-actions';
 
     var no = document.createElement('button');
     no.type = 'button';
-    no.textContent = 'Отказаться';
+    no.textContent = TEXT.decline;
     no.addEventListener('click', function () { decide('denied'); });
 
     var yes = document.createElement('button');
     yes.type = 'button';
     yes.className = 'mt-yes';
-    yes.textContent = 'Разрешить';
+    yes.textContent = TEXT.accept;
     yes.addEventListener('click', function () { decide('granted'); });
 
     actions.appendChild(no);

@@ -364,10 +364,17 @@ jobs:
           body: |
             **MoniTune ${{ steps.version.outputs.version }}**
 
-            Скачать: **MonitorTune-Setup.exe** (для установки на чистую машину).
-            Auto-update внутри приложения — читает `latest.json` из этого release.
+            Download **MonitorTune-Setup.exe** to install on a clean machine.
+            The app updates itself from the `latest.json` of this release.
 
-            SHA-256 MSIX: `${{ steps.sha.outputs.SHA256 }}`
+            MSIX SHA-256: `${{ steps.sha.outputs.SHA256 }}`
+
+            `latest.json` is signed with Ed25519; the public key is built into the app.
+
+            ---
+
+            Скачайте **MonitorTune-Setup.exe** для установки на чистую машину.
+            Приложение обновляется само, читая `latest.json` из этого выпуска.
 
             Подпись `latest.json` — Ed25519, публичный ключ зашит в приложение.
           draft: false

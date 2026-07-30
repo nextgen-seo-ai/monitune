@@ -64,7 +64,7 @@
     <a href="./">Home</a>
     <a href="faq.html">Documentation</a>
     <a href="privacy.html" aria-current="page">Privacy</a>
-    <a href="eula.html">Licence</a>
+    <a href="eula.html">License</a>
     <a href="https://github.com/nextgen-seo-ai/monitune" rel="noopener">GitHub</a>
   </nav>
 </header>
@@ -75,7 +75,7 @@
 
 <h1>Privacy policy</h1>
 <p class="lede">
-  Applies to the MoniTune application and to this website. Revision of 30 July 2026.
+  Applies to the MoniTune application and to this website. Last revised July 30, 2026.
 </p>
 
 <h2>In short</h2>
@@ -84,24 +84,24 @@
   <li>The application contains neither telemetry nor usage analytics.</li>
   <li>There are no accounts and no registration.</li>
   <li>Settings are stored only on your computer.</li>
-  <li>The application's only network request is an update check on GitHub. It can be switched off in settings.</li>
+  <li>The application's only network request is an update check on GitHub. It can be turned off in settings.</li>
   <li>The website runs a Google Analytics visit counter that loads only after you agree. <a href="#analytics">Details below</a>.</li>
 </ul>
 
 <h2>What the application stores locally</h2>
 <p>
   Application parameters — the adjustment step, night mode values, the schedule, the state of
-  the switches, the brightness-contrast link for each monitor — are saved to a settings file in
+  the switches, whether brightness and contrast are linked for each monitor — are saved to a settings file in
   your user profile. This data never leaves the computer.
 </p>
 <p>
   The application log is written to a local file and kept for the two most recent sessions (the
   current one and the previous one). It contains technical details: monitor model, connection
-  interface, error codes from the data exchange, application and system versions. There is no
-  personal data, no screen content, no typed text and no list of running programs in it.
+  interface, error codes from the data exchange, application and system versions. The log contains no
+  personal data, no screen content, no typed text and no list of running programs.
 </p>
 <p>
-  On a crash the application saves a diagnostic report to a local folder. Such a report is never
+  If the application crashes, it saves a diagnostic report to a local folder. Such a report is never
   sent automatically.
 </p>
 
@@ -113,14 +113,14 @@
 </p>
 <p>
   During such a request GitHub, as the service owner, sees your IP address and the standard HTTP
-  headers — an unavoidable property of any request to an external site, governed by
+  headers — an unavoidable aspect of any request to an external site, and it is governed by
   <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener nofollow">GitHub's privacy policy</a>.
   No information about you, your computer or your monitor configuration is transmitted.
 </p>
 <p>
   Update checking can be turned off: <strong>icon menu → Settings → Updates and diagnostics →
   “Check for updates on startup”</strong>. Once disabled, the application makes no network
-  requests at all until you ask for a check by hand.
+  requests at all until you request a check manually.
 </p>
 
 <h2>Sending diagnostics</h2>
@@ -137,10 +137,10 @@
 
 <h2>Interaction with the system and hardware</h2>
 <ul>
-  <li>Exchanging commands with external monitors over the local DDC/CI bus through the Windows interface.</li>
+  <li>Exchanging commands with external monitors over the local DDC/CI bus through the Windows system interface.</li>
   <li>Controlling a laptop screen's backlight through the WMI interface.</li>
   <li>Obtaining the list of displays and their properties through standard Windows calls.</li>
-  <li>On your command — registration in the Windows startup list.</li>
+  <li>At your request — adding the application to the Windows startup list.</li>
   <li>Showing update notifications through the Windows notification service.</li>
 </ul>
 
@@ -150,35 +150,35 @@
   when the counter is enabled nor when it is disabled.
 </p>
 <p>
-  The website carries a <strong>Google Analytics 4</strong> visit counter. It loads
+  The website runs a <strong>Google Analytics 4</strong> visit counter. It loads
   <strong>only after your explicit consent</strong>. Until you press “Allow” in the banner, the
-  counter script is not attached: not a single request reaches Google's servers and not a single
-  cookie appears on your device. A refusal is remembered and the banner is not shown again.
+  counter script is not loaded: not a single request reaches Google's servers and not a single
+  cookie appears on your device. If you decline, that choice is remembered and the banner is not shown again.
 </p>
-<p>With consent given, the counter receives the set of details standard for web analytics:</p>
+<p>If you consent, the counter receives the standard set of information used in web analytics:</p>
 <ul>
-  <li>the addresses of the pages you open and the transitions between them;</li>
+  <li>the addresses of the pages you open and how you move between them;</li>
   <li>the referral source — a search engine, a link from another site, or a direct visit;</li>
   <li>device type, browser, screen resolution, language;</li>
-  <li>country and city derived from the IP address (the address itself is truncated — it is sent with the anonymisation parameter);</li>
+  <li>country and city derived from the IP address (the address itself is truncated — it is sent with the anonymization parameter);</li>
   <li>an identifier in the <code>_ga</code> cookie that distinguishes a returning visit from a new one.</li>
 </ul>
 <p>
   Your name, email address, screen content, details about your monitors and any data from the
   application are not passed to the counter — it only sees visits to these web pages.
-  Advertising and remarketing are disabled. Processing on Google's side is governed by its
+  Advertising and remarketing are disabled. Processing by Google is governed by its
   <a href="https://policies.google.com/privacy" rel="noopener nofollow">privacy policy</a>.
 </p>
 <p>
-  You can change your decision at any time — the button below brings the choice banner back.
+  You can change your decision at any time — the button below brings the consent banner back.
 </p>
 <p>
-  <button type="button" id="analytics-reset" class="btn btn-ghost">Change the analytics decision</button>
+  <button type="button" id="analytics-reset" class="btn btn-ghost">Change your analytics choice</button>
   <span id="analytics-state" class="analytics-state"></span>
 </p>
 <p>
   Apart from that counter the site sets no cookies. The statistics page loads public release
-  data through GitHub's open programming interface without transmitting any of your data.
+  data through GitHub's public API without transmitting any of your data.
 </p>
 
 <h2>Verifiability</h2>
@@ -206,7 +206,7 @@
   <span class="foot-links">
     <a href="./">Home</a>
     <a href="faq.html">Documentation</a>
-    <a href="eula.html">Licence</a>
+    <a href="eula.html">License</a>
     <a href="stats/">Statistics</a>
   </span>
 </footer>

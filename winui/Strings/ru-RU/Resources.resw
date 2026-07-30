@@ -145,7 +145,7 @@
     <value>DisplayLink адаптер — управление яркостью через DDC/CI не передаётся</value>
   </data>
   <data name="ReasonInternalWmi" xml:space="preserve">
-    <value>Встроенный дисплей: Windows не отдаёт управление яркостью через WMI. Обновите драйвер видеокарты и проверьте, что служба «Display Brightness Service» не отключена.</value>
+    <value>Встроенный дисплей: Windows не отдаёт управление яркостью через WMI. Обновите драйвер видеокарты и проверьте, что служба «Display Enhancement Service» не отключена.</value>
   </data>
   <data name="ReasonNoDdc" xml:space="preserve">
     <value>Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)</value>

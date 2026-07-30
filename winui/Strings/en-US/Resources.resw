@@ -99,7 +99,7 @@
     <value>Sync</value>
   </data>
   <data name="PanelSyncTip" xml:space="preserve">
-    <value>Move all monitors together</value>
+    <value>Adjust all monitors together</value>
   </data>
   <data name="PanelRefreshTip" xml:space="preserve">
     <value>Rescan monitors</value>
@@ -142,10 +142,10 @@ verify delay: {2} ms</value>
     <value>Control unavailable. {0}</value>
   </data>
   <data name="ReasonDisplayLink" xml:space="preserve">
-    <value>DisplayLink adapter — it does not pass DDC/CI brightness control through</value>
+    <value>DisplayLink adapter — DDC/CI brightness control is not passed through</value>
   </data>
   <data name="ReasonInternalWmi" xml:space="preserve">
-    <value>Built-in display: Windows is not exposing brightness control over WMI. Update the graphics driver and check that the Display Brightness Service is not disabled.</value>
+    <value>Built-in display: Windows does not expose brightness control through WMI. Update the graphics driver and check that the Display Enhancement Service is not disabled.</value>
   </data>
   <data name="ReasonNoDdc" xml:space="preserve">
     <value>The monitor does not respond over DDC/CI (check whether DDC/CI is enabled in its OSD)</value>
@@ -165,10 +165,10 @@ verify delay: {2} ms</value>
 
   <!-- ── Rescanning monitors ─────────────────────────────────── -->
   <data name="RefreshInProgress" xml:space="preserve">
-    <value>A monitor rescan is already running…</value>
+    <value>Already rescanning monitors…</value>
   </data>
   <data name="RefreshTooSoon" xml:space="preserve">
-    <value>The monitor list was just refreshed. Try again in a couple of seconds.</value>
+    <value>The monitors were just rescanned. Try again in a couple of seconds.</value>
   </data>
   <data name="RefreshNone" xml:space="preserve">
     <value>No monitors found</value>
@@ -185,10 +185,10 @@ verify delay: {2} ms</value>
     <value>MoniTune settings</value>
   </data>
   <data name="SettingsStepTitle" xml:space="preserve">
-    <value>Brightness and contrast step</value>
+    <value>Brightness and contrast step size</value>
   </data>
   <data name="SettingsStepHint" xml:space="preserve">
-    <value>How many per cent the value moves when you use a hotkey.</value>
+    <value>How much the value changes, in percent, when you use a keyboard shortcut.</value>
   </data>
   <data name="SettingsNightTitle" xml:space="preserve">
     <value>Night mode</value>
@@ -200,7 +200,7 @@ verify delay: {2} ms</value>
     <value>Contrast at night</value>
   </data>
   <data name="SettingsSchedule" xml:space="preserve">
-    <value>Follow a schedule</value>
+    <value>Schedule night mode</value>
   </data>
   <data name="SettingsFrom" xml:space="preserve">
     <value>From</value>
@@ -212,13 +212,13 @@ verify delay: {2} ms</value>
     <value>Activity and sleep</value>
   </data>
   <data name="SettingsAwakeHint" xml:space="preserve">
-    <value>These settings help when the computer has to stay active during a long task or a presentation. Simulated activity also keeps your status online in Teams, Slack and other messaging apps.</value>
+    <value>These settings help when the computer needs to stay awake during a long task or a presentation. Simulated activity also keeps your status set to Online in Teams, Slack, and other messaging apps.</value>
   </data>
   <data name="SettingsVisibleMoveHint" xml:space="preserve">
-    <value>By default the simulation is invisible — the system and applications see a real movement, but the cursor does not shift. Turn this on if you want to see it happen: the cursor will move one pixel and back.</value>
+    <value>By default, the simulation is invisible — the system and apps register real movement, but the cursor does not move. Turn this on if you want to see it happen: the cursor will move one pixel and back.</value>
   </data>
   <data name="SettingsTelemetryHint" xml:space="preserve">
-    <value>Crashes are always written locally to the crashes folder next to the log. With this option on they are additionally sent to the configured endpoint. No personal data is collected.</value>
+    <value>Crash reports are always saved locally to the crashes folder next to the log file. With this option on, they are also sent to the configured endpoint. No personal data is collected.</value>
   </data>
   <data name="SettingsPreventSleep" xml:space="preserve">
     <value>Keep the computer and display awake</value>
@@ -227,7 +227,7 @@ verify delay: {2} ms</value>
     <value>Simulate user activity</value>
   </data>
   <data name="SettingsSimulateInterval" xml:space="preserve">
-    <value>Simulation interval, seconds</value>
+    <value>Simulation interval (seconds)</value>
   </data>
   <data name="SettingsVisibleMove" xml:space="preserve">
     <value>Visible cursor movement</value>
@@ -245,13 +245,13 @@ verify delay: {2} ms</value>
     <value>Diagnostic reporting (crash reports + anonymous metrics)</value>
   </data>
   <data name="SettingsTelemetry" xml:space="preserve">
-    <value>Allow sending anonymous crash reports</value>
+    <value>Send anonymous crash reports</value>
   </data>
   <data name="SettingsLanguageTitle" xml:space="preserve">
     <value>Interface language</value>
   </data>
   <data name="SettingsLanguageHint" xml:space="preserve">
-    <value>The new language applies after the app restarts.</value>
+    <value>The new language takes effect after you restart the app.</value>
   </data>
   <data name="SettingsLanguageAuto" xml:space="preserve">
     <value>Same as Windows</value>
@@ -272,7 +272,7 @@ verify delay: {2} ms</value>
     <value>Checking…</value>
   </data>
   <data name="UpdateUpToDate" xml:space="preserve">
-    <value>You have the current version.</value>
+    <value>You're up to date.</value>
   </data>
   <data name="UpdateFoundInTray" xml:space="preserve">
     <value>Version {0} is available. See the tray notification.</value>
@@ -310,16 +310,16 @@ verify delay: {2} ms</value>
     <value>MoniTune updated to {0}</value>
   </data>
   <data name="UpdatedBody" xml:space="preserve">
-    <value>Carry on — the new fixes are already in place.</value>
+    <value>You can keep working — the new fixes are already in place.</value>
   </data>
   <data name="UpdateFailedTitle" xml:space="preserve">
-    <value>The update did not install</value>
+    <value>Update failed to install</value>
   </data>
   <data name="UpdateFailedBody" xml:space="preserve">
-    <value>Could not move from {0} to {1}. Try later through “Update to…” in the tray menu.</value>
+    <value>Could not update from {0} to {1}. Try again later using “Update to…” in the tray menu.</value>
   </data>
   <data name="UpdateAlreadyLatest" xml:space="preserve">
-    <value>You already have the latest MoniTune {0}</value>
+    <value>MoniTune {0} is already the latest version</value>
   </data>
   <data name="UpdateCheckFailed" xml:space="preserve">
     <value>Could not check for updates: {0}</value>
@@ -331,7 +331,7 @@ verify delay: {2} ms</value>
     <value>Update error: {0}</value>
   </data>
   <data name="UpdateUnavailable" xml:space="preserve">
-    <value>No update available. You may already be on the latest version, or GitHub is unreachable.</value>
+    <value>No update available. You may already be on the latest version, or GitHub may be unreachable.</value>
   </data>
   <data name="UpdateInstallFailedLog" xml:space="preserve">
     <value>Could not install update {0}. See the log in LocalCache.</value>
@@ -342,7 +342,7 @@ verify delay: {2} ms</value>
 
   <!-- ── Diagnostics ─────────────────────────────────────────── -->
   <data name="DiagnosticDone" xml:space="preserve">
-    <value>Diagnostics collected: {0} on your Desktop. Send the file to the developer.</value>
+    <value>Diagnostics saved to your Desktop: {0}. Send the file to the developer.</value>
   </data>
   <data name="DiagnosticFailed" xml:space="preserve">
     <value>Could not collect diagnostics: {0}</value>
@@ -350,14 +350,14 @@ verify delay: {2} ms</value>
 
   <!-- ── Start with Windows ──────────────────────────────────── -->
   <data name="AutoStartDisabledByUser" xml:space="preserve">
-    <value>You disabled startup in Windows Settings. Turn it back on here:
+    <value>Startup for MoniTune is turned off in Windows Settings. Turn it back on here:
 Settings → Apps → Startup → MoniTune.</value>
   </data>
   <data name="AutoStartBlockedByPolicy" xml:space="preserve">
     <value>Startup is blocked by group policy (typical on work machines). Ask your administrator.</value>
   </data>
   <data name="AutoStartRefused" xml:space="preserve">
-    <value>Windows refused the startup request (state={0}). Try enabling it by hand in Settings → Apps → Startup.</value>
+    <value>Windows refused the startup request (state={0}). Try turning it on manually in Settings → Apps → Startup.</value>
   </data>
   <data name="AutoStartChangeFailed" xml:space="preserve">
     <value>Could not change the startup setting: {0}</value>
@@ -368,7 +368,7 @@ Settings → Apps → Startup → MoniTune.</value>
     <value>About</value>
   </data>
   <data name="AboutVersion" xml:space="preserve">
-    <value>version {0}</value>
+    <value>Version {0}</value>
   </data>
   <data name="AboutSectionFeatures" xml:space="preserve">
     <value>Features</value>
@@ -386,6 +386,6 @@ Settings → Apps → Startup → MoniTune.</value>
     <value>Frequently asked questions</value>
   </data>
   <data name="AboutLicenseHeader" xml:space="preserve">
-    <value>Full text of the licence agreement</value>
+    <value>Full text of the license agreement</value>
   </data>
 </root>

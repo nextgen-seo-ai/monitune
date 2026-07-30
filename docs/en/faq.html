@@ -47,7 +47,7 @@
       "@type": "TechArticle",
       "@id": "https://nextgen-seo-ai.github.io/monitune/en/faq.html#article",
       "headline": "MoniTune documentation: controlling monitor brightness and contrast on Windows",
-      "description": "The complete MoniTune guide: installation, synchronised adjustment across several monitors, scheduled night mode, hotkeys, how DDC/CI and WMI are used, and troubleshooting.",
+      "description": "The complete MoniTune guide: installation, synchronized adjustment across several monitors, scheduled night mode, hotkeys, how DDC/CI and WMI are used, and troubleshooting.",
       "inLanguage": "en-US",
       "url": "https://nextgen-seo-ai.github.io/monitune/en/faq.html",
       "image": "https://nextgen-seo-ai.github.io/monitune/og-image.png",
@@ -60,7 +60,7 @@
       "@type": "HowTo",
       "@id": "https://nextgen-seo-ai.github.io/monitune/en/faq.html#howto-install",
       "name": "How to control the brightness of every monitor with one slider",
-      "description": "Installing MoniTune and turning on synchronised brightness control for several monitors on Windows.",
+      "description": "Installing MoniTune and turning on synchronized brightness control for several monitors on Windows.",
       "inLanguage": "en-US",
       "totalTime": "PT3M",
       "tool": { "@type": "HowToTool", "name": "A PC running Windows 10 (2004+) or Windows 11" },
@@ -98,7 +98,7 @@
           "name": "My monitor is missing from the list, or the slider does nothing. What should I do?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "An external monitor needs DDC/CI switched on. Open the monitor's on-screen menu with the buttons on its body and look for the option — vendors name it differently: DDC/CI, DDC, and it is sometimes buried in a service section. If there is no such option at all, the monitor does not support software control. Also use Rescan monitors in the icon menu: the app will report how many displays Windows currently sees."
+            "text": "An external monitor needs DDC/CI switched on. Open the monitor's on-screen menu with its physical buttons and look for the option — vendors call it DDC/CI or just DDC, and it is sometimes buried in a service section. If there is no such option at all, the monitor does not support software control. Also use Rescan monitors in the icon menu: the app will report how many displays Windows currently sees."
           }
         },
         {
@@ -106,7 +106,7 @@
           "name": "Does MoniTune work with a laptop's built-in screen?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Built-in laptop panels have no DDC/CI channel, so brightness is controlled through the Windows WMI interface instead. That standard has no contrast parameter for built-in screens, which is why such a card shows only a brightness slider."
+            "text": "Yes. Built-in laptop panels have no DDC/CI channel, so brightness is controlled through the Windows WMI interface instead. That standard has no contrast parameter for built-in screens, which is why the card for a built-in screen shows only a brightness slider."
           }
         },
         {
@@ -114,7 +114,7 @@
           "name": "Why does the slider react with a slight delay?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A monitor's controller processes DDC/CI commands slowly, and sending them too quickly causes failures: on some models the on-screen menu or the physical buttons stop responding. MoniTune deliberately limits the command rate — the interval is chosen from the connection type and the vendor, ranging from 80 ms on HDMI to 300 ms on USB-C. There is no background polling; the app talks to a monitor only when you act."
+            "text": "A monitor's controller processes DDC/CI commands slowly, and sending them too quickly causes failures: on some models the on-screen menu or the physical buttons stop responding. MoniTune deliberately limits the command rate — the interval is chosen based on the connection type and the vendor, ranging from 80 ms on HDMI to 300 ms on USB-C. There is no background polling; the app talks to a monitor only when you act."
           }
         },
         {
@@ -122,7 +122,7 @@
           "name": "Will my values survive a reboot?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "For external monitors, yes: brightness and contrast are stored in the monitor's own non-volatile memory and survive a power cycle. MoniTune does not restore values at startup, to avoid loading the controller with unnecessary commands."
+            "text": "For external monitors, yes: brightness and contrast are stored in the monitor's own non-volatile memory and survive a power cycle. MoniTune does not restore values at startup, to avoid burdening the controller with unnecessary commands."
           }
         },
         {
@@ -138,7 +138,7 @@
           "name": "Does MoniTune collect any user data?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The app does not. It has no telemetry and no usage analytics, there are no accounts, and settings stay on your machine. Its only network request is a periodic check for new versions on the public GitHub repository, which can be switched off in settings. On a crash the report is written to a local folder and is never sent anywhere without your consent. Separately from the app: this website runs a Google Analytics visit counter that loads only after you explicitly agree in the banner, and it has no effect on the application."
+            "text": "The app does not. It has no telemetry and no usage analytics, there are no accounts, and settings stay on your machine. Its only network request is a periodic check for new versions on the public GitHub repository, which can be switched off in settings. On a crash the report is written to a local folder and is never sent anywhere without your consent. As for the website itself: it runs a Google Analytics visit counter that loads only after you explicitly agree in the banner, and it has no effect on the application."
           }
         },
         {
@@ -162,7 +162,7 @@
           "name": "Why is the installer about 86 MB for such a small utility?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The package is self-contained: .NET 9 and the Windows App SDK are already inside. That way installation completes on a clean Windows with no prompts for extra components — users previously saw a dialog demanding the .NET Runtime."
+            "text": "The package is self-contained: .NET 9 and the Windows App SDK are already inside. That way installation completes on a clean Windows install with no prompts for extra components — users previously saw a dialog telling them to install the .NET Runtime."
           }
         },
         {
@@ -170,7 +170,7 @@
           "name": "How do I uninstall MoniTune?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Windows Settings → Apps → Installed apps → MoniTune → Uninstall. The signing certificate stays in the system; you can remove it by hand through the certlm.msc console if you want to."
+            "text": "Windows Settings → Apps → Installed apps → MoniTune → Uninstall. The signing certificate remains on the system; you can remove it manually through the certlm.msc snap-in if you need to."
           }
         }
       ]
@@ -206,7 +206,7 @@
 <h1>MoniTune documentation</h1>
 <p class="lede">
   MoniTune controls the brightness and contrast of your monitors from the Windows notification
-  area. External monitors are driven over the DDC/CI standard, a laptop's built-in screen over
+  area. External monitors are driven via the DDC/CI standard, a laptop's built-in screen via
   the WMI interface. Below: how it all works, what you can configure, and what to do when a
   monitor does not respond.
 </p>
@@ -242,8 +242,8 @@
   store and to install the application package.
 </p>
 <ol>
-  <li>Import of the signing certificate into the Trusted Root and Trusted People stores.</li>
-  <li>Installation of the MSIX application package.</li>
+  <li>Importing the signing certificate into the Trusted Root Certification Authorities and Trusted People stores.</li>
+  <li>Installing the MSIX application package.</li>
 </ol>
 <p>
   The package is self-contained: .NET 9 and the Windows App SDK are already inside, so nothing
@@ -274,7 +274,7 @@
 </figure>
 
 <p class="screens-note">
-  Screenshots show the Russian interface; the English build is in progress.
+  Screenshots show the Russian interface; English screenshots are coming soon.
 </p>
 
 <p>Controls in the top row of the panel:</p>
@@ -298,11 +298,11 @@
 <p>
   The DDC/CI standard describes a service channel between the graphics card and the monitor. It
   carries not only display capabilities but also image control commands — the same ones the
-  buttons on the monitor's body trigger. MoniTune uses the standard VCP codes:
+  buttons on the monitor itself trigger. MoniTune uses the standard VCP codes:
   <code>0x10</code> for brightness and <code>0x12</code> for contrast.
 </p>
 <p>
-  The channel travels along the ordinary signal cable together with video, so no extra hardware
+  The channel runs over the ordinary signal cable alongside the video, so no extra hardware
   or drivers are needed. The app detects the graphics vendor and the connection type in order to
   pick a safe interval between commands.
 </p>
@@ -311,7 +311,7 @@
 <p>
   Built-in panels have no physical DDC/CI channel — the signal never leaves the platform.
   Windows exposes backlight control through WMI instead, and that is the path MoniTune takes.
-  The WMI standard has no contrast parameter, so a built-in screen's card carries only a
+  The WMI standard has no contrast parameter, so a built-in screen's card shows only a
   brightness slider.
 </p>
 
@@ -325,7 +325,7 @@
 
 <h2 id="sync">Sync mode</h2>
 <p>
-  Flip the <strong>Sync</strong> toggle and moving any slider applies to every monitor at the
+  Flip the <strong>Sync</strong> toggle, and moving any slider will apply to every monitor at the
   same time. Handy when the light in the room changes and the whole desk needs adjusting.
 </p>
 <p>
@@ -342,7 +342,7 @@
 
 <h2 id="night">Night mode</h2>
 <p>
-  Night mode moves the monitors to reduced values after remembering the current ones. Turning it
+  Night mode remembers the current values and then moves the monitors to reduced ones. Turning it
   off restores the daytime values. You can trigger it with the moon button, a hotkey, or a
   schedule.
 </p>
@@ -359,8 +359,8 @@
 
 <p>What you can configure:</p>
 <ul>
-  <li><strong>Night brightness and contrast</strong> — the values the monitors move to.</li>
-  <li><strong>Follow a schedule</strong> — switch automatically at the times you set.</li>
+  <li><strong>Brightness at night</strong> and <strong>Contrast at night</strong> — the values the monitors move to.</li>
+  <li><strong>Schedule night mode</strong> — switch automatically at the times you set.</li>
   <li><strong>The From … To … interval</strong> — the night period; crossing midnight is supported.</li>
 </ul>
 
@@ -383,18 +383,18 @@
   Hotkeys act on the monitor <strong>the cursor is currently over</strong>. If that monitor does
   not support the parameter — asking a laptop's built-in screen for contrast, for example — the
   command goes to the first monitor that does support it. The step is set in settings and
-  defaults to 5 per cent.
+  defaults to 5 percent.
 </p>
 
 <h2 id="autostart">Start with Windows</h2>
 <p>
-  <strong>Start with Windows</strong> in the icon menu enables autostart. Windows requires
+  <strong>Start with Windows</strong> in the icon menu adds MoniTune to Windows startup. Windows requires
   confirmation for apps installed outside the Microsoft Store: if the system declines the
-  request, MoniTune shows a notification pointing at the right settings page.
+  request, MoniTune shows a notification pointing to the right settings page.
 </p>
 <div class="note">
   <p>
-    You can check and toggle autostart under <strong>Settings → Apps → Startup</strong>. The
+    You can check and toggle the startup setting under <strong>Settings → Apps → Startup</strong>. The
     checkbox in the MoniTune menu always reflects the real state in the system.
   </p>
 </div>
@@ -406,8 +406,8 @@
 </p>
 <ul>
   <li>
-    <strong>Keep the computer and display awake</strong> — a request to the system to hold the
-    active state.
+    <strong>Keep the computer and display awake</strong> — asks the system to keep the machine
+    in an active state.
   </li>
   <li>
     <strong>Simulate user activity</strong> — a periodic input signal. Keeps your status online
@@ -439,7 +439,7 @@
 </ol>
 <p>
   Download progress is shown in a notification. Installing a version older than the current one
-  is blocked. The “Later” button in the notification is remembered — that version will not be
+  is blocked. Choosing “Later” in the notification is remembered — that version will not be
   offered again, though you can still install it from the icon menu.
 </p>
 
@@ -454,7 +454,7 @@
   <li>The log of the current and the previous session.</li>
   <li>The monitor list: connection interface, value scale, capability flags, last error code.</li>
   <li>The settings file.</li>
-  <li>Up to ten most recent crash reports.</li>
+  <li>Up to the ten most recent crash reports.</li>
   <li>System details: app version, Windows build, architecture, WMI availability.</li>
 </ul>
 
@@ -463,7 +463,7 @@
 <h3>The monitor is listed but the slider does nothing</h3>
 <p>
   Check DDC/CI in the monitor's on-screen menu. On some models the option is off by default, on
-  others it hides in a service section. If the monitor is connected through a DisplayLink
+  others it is buried in a service section. If the monitor is connected through a DisplayLink
   adapter, software control is impossible: such adapters do not carry the service channel.
 </p>
 
@@ -478,21 +478,21 @@
 <h3>The value jumps back</h3>
 <p>
   Most likely HDR or adaptive brightness is active, which means the system owns the backlight.
-  MoniTune recognises this and labels the monitor accordingly. Turn HDR off in display settings
+  MoniTune recognizes this and labels the monitor accordingly. Turn HDR off in display settings
   if you need software control.
 </p>
 
 <h3>The monitor's on-screen menu stopped responding</h3>
 <p>
   A rare case on certain models: the controller is overloaded with commands. Switch the monitor
-  off with its power button for a few seconds and back on. MoniTune limits the command rate
+  off with its power button, wait a few seconds, and turn it back on. MoniTune limits the command rate
   precisely to prevent this.
 </p>
 
-<h3>The icon hid itself in the overflow area</h3>
+<h3>The icon is hidden in the overflow area</h3>
 <p>
-  Windows moves icons of newly installed apps into the hidden area. Click the arrow next to the
-  clock and drag the sun out to the other icons — the position is preserved, including across
+  Windows moves the icons of newly installed apps into the hidden area. Click the arrow next to the
+  clock and drag the sun out to the other icons — the position is preserved, even across
   app updates.
 </p>
 
@@ -503,7 +503,7 @@
   <div class="faq-body">
     <p>
       An external monitor needs DDC/CI switched on. Open the on-screen menu with the buttons on
-      the monitor's body and find the option — vendors name it differently: DDC/CI, DDC, and it
+      the monitor itself and find the option — vendors call it DDC/CI or just DDC, and it
       is sometimes buried in a service section. If there is no such option at all, the monitor
       does not support software control.
     </p>
@@ -520,7 +520,7 @@
     <p>
       Yes. Built-in panels have no DDC/CI channel, so brightness is controlled through the
       Windows WMI interface. That standard has no contrast parameter for built-in screens, so
-      such a card carries only a brightness slider.
+      the card for a built-in screen shows only a brightness slider.
     </p>
   </div>
 </details>
@@ -531,7 +531,7 @@
     <p>
       A monitor's controller processes DDC/CI commands slowly, and sending them too quickly
       causes failures — on some models the on-screen menu stops responding. MoniTune
-      deliberately limits the rate: the interval is chosen from the connection type and the
+      deliberately limits the rate: the interval is chosen based on the connection type and the
       vendor, from 80 ms on HDMI to 300 ms on USB-C.
     </p>
   </div>
@@ -542,7 +542,7 @@
   <div class="faq-body">
     <p>
       For external monitors, yes: the values live in the monitor's own memory and survive a
-      power cycle. MoniTune does not restore them at startup, to avoid loading the controller
+      power cycle. MoniTune does not restore them at startup, to avoid burdening the controller
       with unnecessary commands.
     </p>
   </div>
@@ -568,7 +568,7 @@
       versions on the public GitHub repository, which can be switched off in settings.
     </p>
     <p>
-      Separately from the app: this website runs a Google Analytics visit counter. It loads only
+      As for the website itself: it runs a Google Analytics visit counter. It loads only
       after you explicitly agree in the banner, has no effect on the application, and can be
       turned off at any time. More in the
       <a href="privacy.html#analytics">privacy policy</a>.
@@ -602,8 +602,8 @@
   <div class="faq-body">
     <p>
       The package is self-contained — .NET 9 and the Windows App SDK are already inside. That
-      way installation completes on a clean Windows with no prompts for extra components: users
-      previously saw a dialog demanding the .NET Runtime.
+      way installation completes on a clean Windows install with no prompts for extra components: users
+      previously saw a dialog telling them to install the .NET Runtime.
     </p>
   </div>
 </details>
@@ -613,8 +613,8 @@
   <div class="faq-body">
     <p>
       <strong>Settings → Apps → Installed apps → MoniTune → Uninstall.</strong>
-      The signing certificate stays in the system; you can remove it by hand through the
-      <code>certlm.msc</code> console if you want to.
+      The signing certificate remains on the system; you can remove it manually through the
+      <code>certlm.msc</code> snap-in if you need to.
     </p>
   </div>
 </details>
@@ -623,9 +623,9 @@
   <summary>Can I use it on several computers?</summary>
   <div class="faq-body">
     <p>
-      Yes, there are no limits. The app is free and the licence allows installation on any
+      Yes, there are no limits. The app is free and the license allows installation on any
       number of devices, including in a commercial environment. The source is open under the
-      MIT licence.
+      MIT license.
     </p>
   </div>
 </details>
@@ -635,7 +635,7 @@
   <span class="foot-links">
     <a href="./">Home</a>
     <a href="privacy.html">Privacy</a>
-    <a href="eula.html">Licence</a>
+    <a href="eula.html">License</a>
     <a href="stats/">Statistics</a>
     <a href="https://github.com/nextgen-seo-ai/monitune/issues" rel="noopener">Support</a>
   </span>

@@ -452,14 +452,14 @@ const CACHE_TTL_MS = 60_000;   // 60 сек — экономим GitHub API rate
 function fmtNumber(n) {
   if (n == null) return '—';
   if (n < 1000) return String(n);
-  return n.toLocaleString('ru-RU').replace(/,/g, ' ');
+  return n.toLocaleString('en-US');
 }
 
 function fmtDate(iso) {
   if (!iso) return '';
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('ru-RU', { year: 'numeric', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   } catch (_) { return iso.substring(0, 10); }
 }
 
@@ -571,7 +571,7 @@ async function main() {
     }
 
     document.getElementById('last-fetched').textContent =
-      'updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      'updated ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     // Проставить актуальную версию в заголовок
     const liveEm = document.getElementById('live-em');

@@ -73,10 +73,18 @@
             </Button>
         </Grid>
 
-        <!-- Карточки мониторов -->
-        <StackPanel x:Name="CardsHost"
-                    Grid.Row="1"
-                    HorizontalAlignment="Stretch"
-                    Spacing="10"/>
+        <!-- Карточки мониторов.
+             ScrollViewer обязателен: высота окна ограничена рабочей областью экрана
+             (см. FitToContent), и при 4+ мониторах карточки иначе просто уезжали
+             за нижнюю границу без возможности до них добраться. -->
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      VerticalScrollMode="Auto"
+                      HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="CardsHost"
+                        HorizontalAlignment="Stretch"
+                        Spacing="10"/>
+        </ScrollViewer>
     </Grid>
 </Window>

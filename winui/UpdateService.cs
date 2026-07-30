@@ -225,8 +225,20 @@ public static class UpdateService
         return info;
     }
 
+    // Единый шлюз установки. Раньше защита от повторного запуска жила только в
+    // TrayIconHost.UpdateClick, а путь через клик по тосту (App.InstallPendingUpdate)
+    // её не проверял — два клика подряд запускали две параллельные загрузки одного
+    // и того же файла в один и тот же msixPath.
+    static int _installGate;
+    public static bool InstallInProgress => System.Threading.Volatile.Read(ref _installGate) != 0;
+
     public static async Task<bool> DownloadAndInstallAsync(UpdateInfo info, IProgress<double>? progress = null)
     {
+        if (System.Threading.Interlocked.CompareExchange(ref _installGate, 1, 0) != 0)
+        {
+            App.LogStatic("UpdateService: установка уже идёт — повторный запрос отклонён");
+            return false;
+        }
         try
         {
             // ВАЖНО: PackageManager.AddPackageAsync работает как система (не как MSIX-приложение)
@@ -377,6 +389,9 @@ public static class UpdateService
             if (result.ExtendedErrorCode != null)
             {
                 App.LogStatic($"UpdateService: install error {result.ExtendedErrorCode.HResult:X}: {result.ErrorText}");
+                // Задача рестарта уже запланирована — снимаем её, иначе через 20 сек
+                // приложение само вылезет флайаутом, хотя обновление не установилось.
+                if (scheduled) CancelPendingRestart();
                 return false;
             }
             App.LogStatic($"UpdateService: install OK — task will restart in ~{RestartDelaySeconds}s");
@@ -385,8 +400,46 @@ public static class UpdateService
         catch (Exception ex)
         {
             App.LogStatic("UpdateService.DownloadAndInstallAsync ex: " + ex);
+            CancelPendingRestart();
             return false;
         }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _installGate, 0);
+            // Успешный путь сюда не доходит: AddPackageAsync убивает процесс, и тост
+            // "Устанавливаю… 100%" исчезает вместе с сессией. А вот при любом провале
+            // прогресс-тост надо снять здесь, иначе он остаётся висеть в Центре
+            // уведомлений навсегда рядом с сообщением об ошибке.
+            TrayIconHost.RemoveProgressToastStatic();
+        }
+    }
+
+    /// <summary>Снять одноразовую задачу рестарта и marker. Вызывается при неудачной
+    /// установке (иначе приложение само поднимется через 20 сек без обновления)
+    /// и из ResumeAfterUpdateIfNeeded после успешного возврата.</summary>
+    static void CancelPendingRestart()
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "schtasks.exe",
+                Arguments = $"/Delete /F /TN \"{RestartTaskName}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var p = System.Diagnostics.Process.Start(psi);
+            if (p != null)
+            {
+                p.WaitForExit(5000);
+                App.LogStatic($"UpdateService: CancelPendingRestart schtasks /Delete rc={p.ExitCode}");
+            }
+        }
+        catch (Exception ex) { App.LogStatic("CancelPendingRestart schtasks ex: " + ex.Message); }
+        try { if (File.Exists(PendingRestartMarkerPath)) File.Delete(PendingRestartMarkerPath); }
+        catch (Exception ex) { App.LogStatic("CancelPendingRestart marker ex: " + ex.Message); }
     }
 
     // ── Утилиты ──────────────────────────────────────────────────────

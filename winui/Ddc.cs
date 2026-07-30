@@ -76,8 +76,24 @@ public class DdcManager
     public event Action<ValueUpdate>? OnValue;
     public event Action? OnInitDone;
 
+    /// <summary>Lock-free снимок списка мониторов. Обновляется при каждой мутации Monitors.
+    /// Нужен чтобы пути с UI-потока и из оконной процедуры (WM_DISPLAYCHANGE, DPMS)
+    /// никогда не брали _monitorsLock: этот лок может удерживаться Refresh'ем, который
+    /// внутри ждёт OpLock у воркера, а воркер спит в RespectSuspension до 30 секунд —
+    /// в итоге интерфейс замирал на всё это время.</summary>
+    volatile MonInfo[] _monitorsSnapshot = Array.Empty<MonInfo>();
+
+    /// <summary>Снимок для UI и диагностики. Без блокировок.</summary>
+    public List<MonInfo> SnapshotMonitors() => new List<MonInfo>(_monitorsSnapshot);
+
+    /// <summary>Пересобрать lock-free снимок. Вызывать ТОЛЬКО под _monitorsLock,
+    /// сразу после любой мутации Monitors.</summary>
+    void RebuildSnapshot() => _monitorsSnapshot = Monitors.ToArray();
+
     readonly object pendingLock = new();
-    readonly Dictionary<string, int> pending = new();
+    // Ключ — стабильный Id монитора + код VCP. Раньше ключом был индекс в списке,
+    // и после Refresh запись могла уйти в другой монитор.
+    readonly Dictionary<(Guid Id, byte Vcp), int> pending = new();
     readonly AutoResetEvent signal = new(false);
     volatile bool running = true;
     Thread? worker;
@@ -129,30 +145,41 @@ public class DdcManager
     /// Использовать когда DDC залип у одного из мониторов или физически отвалился.</summary>
     public void Refresh()
     {
+        // Фаза 1 (под локом, коротко): забираем старый список, помечаем Disposed,
+        // чистим очередь, поднимаем поколение. Никаких долгих операций здесь —
+        // раньше под этим локом выполнялись и DestroyPhysicalMonitor (ожидание I2C),
+        // и полный Enumerate (до 2 сек с retry), из-за чего WndProc-путь SuspendDdc
+        // блокировал UI-поток на всё это время.
+        MonInfo[] old;
         lock (_monitorsLock)
         {
-            // Устаревшие pending idx — обнуляем очередь (индексы больше не соответствуют новым MonInfo после Clear+Enumerate).
             lock (pendingLock) { pending.Clear(); }
-            foreach (var m in Monitors)
-            {
-                lock (m.OpLock)
-                {
-                    m.Disposed = true;
-                    try
-                    {
-                        if (m.Handle != IntPtr.Zero) Native.DestroyPhysicalMonitor(m.Handle);
-                    }
-                    catch (Exception ex) { Log?.Invoke($"Refresh destroy ex [{m.ShortId}]: {ex.Message}"); }
-                    m.Handle = IntPtr.Zero;
-                }
-            }
+            old = Monitors.ToArray();
+            foreach (var m in old) m.Disposed = true;
             Monitors.Clear();
-            // Новое поколение — UI сверяет его с Generation каждой MonInfo для отбрасывания stale OnValue.
+            RebuildSnapshot();
             CurrentGeneration++;
             Log?.Invoke($"Refresh: generation → {CurrentGeneration}");
-            try { Enumerate(); }
-            catch (Exception ex) { Log?.Invoke($"Refresh enumerate ex: {ex.Message}"); }
         }
+
+        // Фаза 2 (вне лока): закрываем handles. OpLock берём по одному монитору —
+        // если воркер сейчас внутри операции, ждём только его, не блокируя весь менеджер.
+        foreach (var m in old)
+        {
+            lock (m.OpLock)
+            {
+                try
+                {
+                    if (m.Handle != IntPtr.Zero) Native.DestroyPhysicalMonitor(m.Handle);
+                }
+                catch (Exception ex) { Log?.Invoke($"Refresh destroy ex [{m.ShortId}]: {ex.Message}"); }
+                m.Handle = IntPtr.Zero;
+            }
+        }
+
+        // Фаза 3: перечисляем заново. Enumerate сам берёт _monitorsLock на добавление.
+        try { Enumerate(); }
+        catch (Exception ex) { Log?.Invoke($"Refresh enumerate ex: {ex.Message}"); }
     }
     public void Stop()
     {
@@ -175,29 +202,33 @@ public class DdcManager
         }
         catch { }
     }
+    /// <summary>Поставить в очередь запись VCP. Индекс сразу превращаем в стабильный
+    /// идентификатор монитора: очередь, ключованная по индексу, после Refresh указывала
+    /// бы на другой монитор — значение могло уехать не туда.</summary>
     public void Request(int monIndex, byte vcp, int value)
     {
-        string key = monIndex + ":" + vcp;
-        lock (pendingLock) { pending[key] = value; }
+        var snap = _monitorsSnapshot;
+        if (monIndex < 0 || monIndex >= snap.Length) return;
+        var id = snap[monIndex].Id;
+        lock (pendingLock) { pending[(id, vcp)] = value; }
         signal.Set();
     }
 
     /// <summary>Запустить начальное чтение caps+значений для новых мониторов после Refresh.</summary>
     public void Rescan() { signal.Set(); _rescanRequested = true; }
     volatile bool _rescanRequested;
-    bool TryTake(out int monIndex, out byte vcp, out int value)
+
+    /// <summary>Забрать всю очередь целиком. Обработка идёт параллельно по мониторам,
+    /// поэтому нужен весь набор сразу, а не по одному элементу.</summary>
+    List<((Guid Id, byte Vcp) Key, int Value)> TakeAllPending()
     {
-        monIndex = 0; vcp = 0; value = 0;
+        var res = new List<((Guid, byte), int)>();
         lock (pendingLock)
         {
-            foreach (var kv in pending)
-            {
-                string[] p = kv.Key.Split(':');
-                monIndex = int.Parse(p[0]); vcp = byte.Parse(p[1]); value = kv.Value;
-                pending.Remove(kv.Key); return true;
-            }
+            foreach (var kv in pending) res.Add((kv.Key, kv.Value));
+            pending.Clear();
         }
-        return false;
+        return res;
     }
     public void Enumerate()
     {
@@ -310,7 +341,11 @@ public class DdcManager
             Log?.Invoke($"  Monitor: {resolved.Name} [{shortId}] transport={tech} gpu={gpu} '{gpuName}' throttle={ComputeThrottle(vendor, tech)}ms gen={CurrentGeneration}");
         }
         list.Sort((a, b) => string.Compare(a.Device, b.Device, StringComparison.Ordinal));
-        Monitors.AddRange(list);
+        lock (_monitorsLock)
+        {
+            Monitors.AddRange(list);
+            RebuildSnapshot();
+        }
     }
     static string? MonitorToken(string device)
     {
@@ -500,6 +535,7 @@ public class DdcManager
     /// <summary>Прочитать caps под per-monitor lock, с try/catch. Возвращает null при ошибке.</summary>
     string? SafeCaps(MonInfo m)
     {
+        RespectSuspension(m);   // до лока — иначе блокируем Refresh на время заморозки
         try
         {
             lock (m.OpLock)
@@ -511,7 +547,6 @@ public class DdcManager
                     Log?.Invoke($"SafeCaps [{m.ShortId}]: handle=0 и reopen fail — caps skip");
                     return null;
                 }
-                RespectSuspension(m);
                 // Caps может отсутствовать у монитора вовсе (Samsung LU28R55 и др. —
                 // VCP отвечает, а CapabilitiesRequestAndCapabilitiesReply нет).
                 // 4 попытки хватит: если поддерживает — отвечает с 1-2й.
@@ -539,6 +574,7 @@ public class DdcManager
             return b;
         }
 
+        RespectSuspension(m);   // до лока — иначе блокируем Refresh на время заморозки
         try
         {
             lock (m.OpLock)
@@ -550,7 +586,6 @@ public class DdcManager
                     Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: handle=0 и reopen fail");
                     return -1;
                 }
-                RespectSuspension(m);
                 // Для Samsung + DP базовые 4 попытки часто мало (капризный DDC/CI-канал).
                 int attempts = (m.WriteGapMs >= 200) ? 6 : 4;
                 int val = ReadRetry(m.Handle, vcp, attempts, out int maxRaw);
@@ -642,8 +677,11 @@ public class DdcManager
         catch (Exception ex) { Log?.Invoke($"TryReopenHandle [{m.ShortId}] ex: {ex.Message}"); return false; }
     }
 
-    /// <summary>Ждать пока истечёт "заморозка DDC" после hotplug/wake для данного монитора.</summary>
-    void RespectSuspension(MonInfo m)
+    /// <summary>Ждать пока истечёт "заморозка DDC" после hotplug/wake для данного монитора.
+    /// ВАЖНО: вызывать ДО захвата m.OpLock. Раньше сон происходил уже внутри лока, и
+    /// Refresh, которому нужен тот же OpLock, вставал на всю длительность заморозки
+    /// (до 30 секунд) — вместе с ним замирал и UI-поток, ждавший _monitorsLock.</summary>
+    static void RespectSuspension(MonInfo m)
     {
         int wait = unchecked((int)(m.DdcSuspendedUntilMs - Environment.TickCount));
         if (wait > 0 && wait < 30000) Thread.Sleep(wait);
@@ -668,6 +706,7 @@ public class DdcManager
             return okEdp;
         }
 
+        RespectSuspension(m);   // до лока — иначе блокируем Refresh на время заморозки
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -683,7 +722,6 @@ public class DdcManager
                     Log?.Invoke($"SafeWrite skip [{m.ShortId}]: handle=0 (reopen fail)");
                     return false;
                 }
-                RespectSuspension(m);
                 if (m.Disposed) return false;
                 Throttle(m);
 
@@ -779,12 +817,13 @@ public class DdcManager
         catch (Exception ex) { Log?.Invoke($"SafeWrite [{m.ShortId}] vcp=0x{vcp:X} val={val} ex: {ex.Message}"); return false; }
     }
 
-    /// <summary>Задержка после hotplug/wake — DDC-канал не сразу оживает. Snapshot под _monitorsLock для thread-safety.</summary>
+    /// <summary>Задержка после hotplug/wake — DDC-канал не сразу оживает.
+    /// Вызывается из оконной процедуры (UI-поток), поэтому читает lock-free снимок:
+    /// брать здесь _monitorsLock нельзя, он может быть занят Refresh'ем.</summary>
     public void SuspendDdc(int ms, string reason)
     {
         long until = Environment.TickCount + ms;
-        MonInfo[] snapshot;
-        lock (_monitorsLock) { snapshot = Monitors.ToArray(); }
+        var snapshot = _monitorsSnapshot;
         foreach (var m in snapshot)
         {
             // Продлеваем через Math.Max — не сокращаем существующий suspend.
@@ -794,11 +833,12 @@ public class DdcManager
         Log?.Invoke($"DDC suspended {ms}ms: {reason}");
     }
 
-    /// <summary>Per-monitor suspend по индексу — для точечного hotplug вместо global.</summary>
+    /// <summary>Per-monitor suspend по индексу — для точечного hotplug вместо global.
+    /// Тоже читает lock-free снимок (вызывается из оконной процедуры).</summary>
     public void SuspendDdc(int monIdx, int ms, string reason)
     {
-        MonInfo? m;
-        lock (_monitorsLock) { m = (monIdx >= 0 && monIdx < Monitors.Count) ? Monitors[monIdx] : null; }
+        var snap = _monitorsSnapshot;
+        MonInfo? m = (monIdx >= 0 && monIdx < snap.Length) ? snap[monIdx] : null;
         if (m == null) return;
         long until = Environment.TickCount + ms;
         if (until > m.DdcSuspendedUntilMs) m.DdcSuspendedUntilMs = until;
@@ -823,20 +863,55 @@ public class DdcManager
                     try { InitialReadAll(); }
                     catch (Exception ex) { Log?.Invoke($"Rescan InitialReadAll ex: {ex}"); }
                 }
-                while (running && TryTake(out int idx, out byte vcp, out int val))
+                while (running)
                 {
-                    MonInfo? m;
-                    lock (_monitorsLock) { m = (idx >= 0 && idx < Monitors.Count) ? Monitors[idx] : null; }
-                    if (m == null || m.Disposed) continue;
-                    bool ok = SafeWrite(m, vcp, val);
-                    if (ok)
+                    var batch = TakeAllPending();
+                    if (batch.Count == 0) break;
+
+                    var snap = _monitorsSnapshot;
+                    // Группируем по монитору и обрабатываем группы параллельно.
+                    // Раньше всё шло строго последовательно одним потоком: один
+                    // неотвечающий монитор (reopen + два длинных ReadRetry) занимал
+                    // 10-25 секунд, и слайдер здорового монитора всё это время не двигался.
+                    // Внутри монитора порядок сохраняется, а per-monitor OpLock
+                    // по-прежнему не даёт двум операциям пересечься на одном устройстве.
+                    var groups = new Dictionary<Guid, List<(byte Vcp, int Val)>>();
+                    foreach (var item in batch)
                     {
-                        Raise(idx, vcp, val);
+                        if (!groups.TryGetValue(item.Key.Id, out var lst))
+                            groups[item.Key.Id] = lst = new List<(byte, int)>();
+                        lst.Add((item.Key.Vcp, item.Value));
                     }
-                    else
+
+                    var tasks = new List<System.Threading.Tasks.Task>();
+                    foreach (var g in groups)
                     {
-                        int real = SafeRead(m, vcp);
-                        if (real >= 0) Raise(idx, vcp, real);
+                        MonInfo? m = null;
+                        foreach (var cand in snap) if (cand.Id == g.Key) { m = cand; break; }
+                        if (m == null || m.Disposed) continue;   // монитор исчез после Refresh
+                        var ops = g.Value;
+                        var mon = m;
+                        tasks.Add(System.Threading.Tasks.Task.Run(() =>
+                        {
+                            foreach (var (vcp, val) in ops)
+                            {
+                                if (!running || mon.Disposed) return;
+                                bool ok = SafeWrite(mon, vcp, val);
+                                if (ok) { RaiseFor(mon, vcp, val); continue; }
+
+                                int real = SafeRead(mon, vcp);
+                                // real < 0 — и записать, и прочитать не удалось. Раньше здесь
+                                // не отправлялось ничего: слайдер оставался там, куда его
+                                // подвинул юзер, хотя железо значение не приняло. Теперь
+                                // сообщаем -1, и UI показывает "?" с отключённым слайдером.
+                                RaiseFor(mon, vcp, real);
+                            }
+                        }));
+                    }
+                    if (tasks.Count > 0)
+                    {
+                        try { System.Threading.Tasks.Task.WaitAll(tasks.ToArray(), 60000); }
+                        catch (Exception ex) { Log?.Invoke("Loop batch WaitAll ex: " + ex.Message); }
                     }
                 }
             }
@@ -848,12 +923,28 @@ public class DdcManager
             }
         }
     }
-    int IndexOf(MonInfo m) { lock (_monitorsLock) { return Monitors.IndexOf(m); } }
+    int IndexOf(MonInfo m)
+    {
+        var snap = _monitorsSnapshot;
+        for (int i = 0; i < snap.Length; i++) if (ReferenceEquals(snap[i], m)) return i;
+        return -1;
+    }
+
     void Raise(int idx, byte vcp, int val)
     {
-        MonInfo? m;
-        lock (_monitorsLock) { m = (idx >= 0 && idx < Monitors.Count) ? Monitors[idx] : null; }
+        var snap = _monitorsSnapshot;
+        MonInfo? m = (idx >= 0 && idx < snap.Length) ? snap[idx] : null;
         if (m == null || m.Disposed) return;
+        OnValue?.Invoke(new ValueUpdate { MonIndex = idx, MonId = m.Id, Generation = m.Generation, Vcp = vcp, Value = val });
+    }
+
+    /// <summary>Отправить значение по объекту монитора: индекс вычисляется на месте.
+    /// Надёжнее чем передавать индекс через очередь — список мог измениться.</summary>
+    void RaiseFor(MonInfo m, byte vcp, int val)
+    {
+        if (m.Disposed) return;
+        int idx = IndexOf(m);
+        if (idx < 0) return;   // монитор уже вне списка
         OnValue?.Invoke(new ValueUpdate { MonIndex = idx, MonId = m.Id, Generation = m.Generation, Vcp = vcp, Value = val });
     }
 

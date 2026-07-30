@@ -94,6 +94,24 @@ public partial class App : Application
     }
 
     public static void LogStatic(string s) => L(s);
+
+    /// <summary>Дождаться, пока фоновый писатель сбросит очередь на диск.
+    /// Нужно перед сбором диагностики: строки лежат в ConcurrentQueue и без флаша
+    /// самые свежие записи (в том числе про сам сбор) в архив не попадут.</summary>
+    public static void FlushLog(int timeoutMs = 1500)
+    {
+        try
+        {
+            _logSignal.Set();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (!_logQueue.IsEmpty && sw.ElapsedMilliseconds < timeoutMs)
+            {
+                _logSignal.Set();
+                System.Threading.Thread.Sleep(25);
+            }
+        }
+        catch { }
+    }
     /// <summary>Snapshot последних N строк для crash-репорта.</summary>
     public static string[] LogTailSnapshot() => _logRing.ToArray();
 
@@ -148,11 +166,15 @@ public partial class App : Application
         L("window created");
 
         _trayWindow = new TrayWindow();
+        // Снапшот мониторов для диагностического архива (monitors.txt).
+        TrayIconHost.DiagnosticMonitorsSnapshot = () => _ddc?.SnapshotMonitors() ?? new List<MonInfo>();
         _trayWindow.Tray.OnOpen += ShowFlyout;
         _trayWindow.Tray.OnOpenFromMenu += () => ShowFlyoutAt(useTrayPosition: true);
         _trayWindow.Tray.OnExit += Exit;
         _trayWindow.Tray.OnAbout += ShowAbout;
-        _trayWindow.Tray.OnRefresh += () => _window?.RefreshMonitors();
+        // Из меню трея — с уведомлением о результате: там нет кнопки, которую можно
+        // задисейблить, и при срабатывании дебаунса клик выглядел как "ничего не произошло".
+        _trayWindow.Tray.OnRefresh += () => { _ = _window?.RefreshMonitorsAsync(notify: true); };
         _trayWindow.Activate();
         // После активации visual tree готов — теперь окно можно прятать.
         _trayWindow.HideHard();
@@ -162,6 +184,11 @@ public partial class App : Application
 
         _night = new NightMode(_ddc, _ui);
         _window!.NightMode = _night;
+        _window.OnRefreshFeedback = msg =>
+        {
+            try { _trayWindow?.Tray?.ShowError(msg); }
+            catch (Exception ex) { L("refresh feedback ex: " + ex.Message); }
+        };
 
         HotkeyService.Log = L;
         _hotkeys = new HotkeyService(_ui);
@@ -276,6 +303,17 @@ public partial class App : Application
             var action = args.Arguments.TryGetValue("action", out var a) ? a : "";
             LogStatic($"Toast invoked: action='{action}'");
             if (action == "update") _ui?.TryEnqueue(InstallPendingUpdate);
+            else if (action == "dismiss")
+            {
+                // Запоминаем отказ, чтобы не показывать тост про эту же версию снова.
+                var ver = args.Arguments.TryGetValue("version", out var v) ? v : null;
+                if (!string.IsNullOrWhiteSpace(ver))
+                {
+                    SettingsStore.Current.DismissedUpdateVersion = ver;
+                    try { SettingsStore.Save(); } catch { }
+                    LogStatic($"Toast dismiss: версия {ver} больше не будет напоминать");
+                }
+            }
         }
         catch (Exception ex) { LogStatic("OnToastInvoked ex: " + ex); }
     }
@@ -322,19 +360,22 @@ public partial class App : Application
                 app?._trayWindow?.Tray?.ShowError("Обновление недоступно. Возможно вы уже на последней версии или нет соединения с GitHub.");
                 return;
             }
+            // Защита от двойного запуска — в UpdateService (общая с путём из меню трея).
+            if (UpdateService.InstallInProgress)
+            {
+                LogStatic("Toast install: установка уже идёт — пропуск");
+                return;
+            }
             LogStatic($"Toast install: качаю {info.Version}");
             var progress = app?._trayWindow?.Tray?.ShowDownloadProgress(info.Version);
             bool ok = await UpdateService.DownloadAndInstallAsync(info, progress);
+            // Прогресс-тост снимается внутри DownloadAndInstallAsync (finally) на любом провале.
             if (!ok)
-            {
-                TrayIconHost.RemoveProgressToastStatic();
                 app?._trayWindow?.Tray?.ShowError($"Не удалось установить обновление {info.Version}. Смотрите лог в LocalCache.");
-            }
         }
         catch (Exception ex)
         {
             LogStatic("InstallPendingUpdate ex: " + ex);
-            TrayIconHost.RemoveProgressToastStatic();
             (Current as App)?._trayWindow?.Tray?.ShowError("Ошибка установки: " + ex.Message);
         }
     }

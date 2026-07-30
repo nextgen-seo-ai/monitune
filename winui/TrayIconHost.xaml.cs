@@ -134,12 +134,62 @@ public sealed partial class TrayIconHost : UserControl
         src.CopyTo(dst);
     }
 
-    void DiagnosticClick(object sender, RoutedEventArgs e)
+    /// <summary>Снапшот текущих мониторов для диагностики. Ставится из App, чтобы
+    /// TrayIconHost не знал про DdcManager напрямую.</summary>
+    public static Func<System.Collections.Generic.List<MonInfo>>? DiagnosticMonitorsSnapshot;
+
+    static volatile bool _diagInProgress;
+    async void DiagnosticClick(object sender, RoutedEventArgs e)
     {
         // Собрать диагностический zip на Desktop: log + системная инфа + crash-репорты.
         // Ничего никуда не отправляется — юзер сам решает кому и как передать файл.
+        if (_diagInProgress) { App.LogStatic("DiagnosticClick: сбор уже идёт"); return; }
+        _diagInProgress = true;
+
+        // Меню закрываем сразу, иначе оно висит замороженным пока идёт сборка.
+        try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
+        string prevText = DiagnosticMenuItem.Text;
+        DiagnosticMenuItem.IsEnabled = false;
+        DiagnosticMenuItem.Text = "Собираю диагностику…";
         try
         {
+            // Вся работа (до 20 МБ логов + WMI-запросы + zip) уходит с UI-потока:
+            // раньше это выполнялось синхронно в обработчике и весь интерфейс замирал
+            // на несколько секунд без единого индикатора.
+            string zipPath = await System.Threading.Tasks.Task.Run(BuildDiagnosticZip);
+            App.LogStatic($"diagnostic: сохранён {zipPath}");
+            ShowError($"Диагностика собрана: {System.IO.Path.GetFileName(zipPath)} на Рабочем столе. Отправьте файл разработчику.");
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{zipPath}\"",
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex) { App.LogStatic("diagnostic: open explorer ex: " + ex.Message); }
+        }
+        catch (Exception ex)
+        {
+            App.LogStatic("DiagnosticClick ex: " + ex);
+            ShowError("Не удалось собрать диагностику: " + ex.Message);
+        }
+        finally
+        {
+            DiagnosticMenuItem.Text = prevText;
+            DiagnosticMenuItem.IsEnabled = true;
+            _diagInProgress = false;
+        }
+    }
+
+    /// <summary>Собрать zip. Выполняется на пуле потоков — не трогает UI-элементы.
+    /// Возвращает путь к готовому архиву.</summary>
+    static string BuildDiagnosticZip()
+    {
+        {
+            // Сбрасываем очередь логгера на диск — иначе свежие строки останутся в памяти.
+            App.FlushLog();
             var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             var stamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss");
             var zipPath = System.IO.Path.Combine(desktop, $"MoniTune-diagnostic-{stamp}.zip");
@@ -186,6 +236,41 @@ public sealed partial class TrayIconHost : UserControl
                 }
                 catch (Exception ex) { App.LogStatic("diagnostic: crashes copy ex: " + ex.Message); }
 
+                // 2b) Настройки — какой throttle, какие overrides, состояние тумблеров.
+                // Без этого невозможно понять, почему у юзера поведение отличается.
+                try
+                {
+                    var settingsPath = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "MonitorTune", "settings.json");
+                    if (System.IO.File.Exists(settingsPath))
+                        CopyFileToZip(zip, settingsPath, "settings.json");
+                }
+                catch (Exception ex) { App.LogStatic("diagnostic: settings copy ex: " + ex.Message); }
+
+                // 2c) Состояние мониторов из самого DdcManager — то, что реально знает
+                // приложение: транспорт, шкала VCP, флаги поддержки, последняя ошибка.
+                // EnumDisplayMonitors ниже такого не показывает.
+                try
+                {
+                    var entry = zip.CreateEntry("monitors.txt");
+                    using var sw = new System.IO.StreamWriter(entry.Open());
+                    var mons = DiagnosticMonitorsSnapshot?.Invoke();
+                    if (mons == null || mons.Count == 0) sw.WriteLine("(нет данных)");
+                    else
+                        foreach (var m in mons)
+                        {
+                            sw.WriteLine($"[{m.ShortId}] {m.Name}");
+                            sw.WriteLine($"    device={m.Device} transport={m.OutputTechnology} gpu={m.Gpu} '{m.AdapterName}'");
+                            sw.WriteLine($"    isEdp={m.IsEdp} ddcSupported={m.DdcSupported} displayLink={m.DisplayLink} permUnavailable={m.DdcPermanentlyUnavailable}");
+                            sw.WriteLine($"    hasBrightness={m.HasBrightness} hasContrast={m.HasContrast} readOnly={m.ReadOnlyBrightness} probablyFreeSync={m.ProbablyFreeSync}");
+                            sw.WriteLine($"    brightness={m.Brightness}% (max={m.BrightnessMax}) contrast={m.Contrast}% (max={m.ContrastMax})");
+                            sw.WriteLine($"    throttle={m.WriteGapMs}ms verifyDelay={m.VerifyDelayMs}ms lastError=0x{m.LastErrorCode:X}");
+                            sw.WriteLine($"    vcpBrightnessUnsupported={m.VcpBrightnessUnsupported} vcpContrastUnsupported={m.VcpContrastUnsupported}");
+                        }
+                }
+                catch (Exception ex) { App.LogStatic("diagnostic: monitors dump ex: " + ex.Message); }
+
                 // 3) Системная инфа
                 try
                 {
@@ -226,24 +311,7 @@ public sealed partial class TrayIconHost : UserControl
                 catch (Exception ex) { App.LogStatic("diagnostic: system-info ex: " + ex.Message); }
             }
 
-            App.LogStatic($"diagnostic: сохранён {zipPath}");
-            ShowError($"Диагностика собрана: {System.IO.Path.GetFileName(zipPath)} на Рабочем столе. Отправьте файл разработчику.");
-            // Открыть Проводник и выделить файл — юзер сразу видит куда.
-            try
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{zipPath}\"",
-                    UseShellExecute = true,
-                });
-            }
-            catch (Exception ex) { App.LogStatic("diagnostic: open explorer ex: " + ex.Message); }
-        }
-        catch (Exception ex)
-        {
-            App.LogStatic("DiagnosticClick ex: " + ex);
-            ShowError("Не удалось собрать диагностику: " + ex.Message);
+            return zipPath;
         }
     }
 
@@ -267,6 +335,17 @@ public sealed partial class TrayIconHost : UserControl
                 UpdateMenuItem.Text = $"Обновить до {info.Version}";
                 UpdateMenuItem.Visibility = Visibility.Visible;
             }
+
+            // Юзер уже нажал «Позже» для этой версии — пункт меню обновляем (установка
+            // остаётся в один клик), но тост не показываем. Иначе одно и то же
+            // напоминание всплывало каждые 4 часа и после каждого выхода из сна.
+            if (!info.Mandatory &&
+                string.Equals(SettingsStore.Current.DismissedUpdateVersion, info.Version, StringComparison.Ordinal))
+            {
+                App.LogStatic($"ShowUpdateAvailable: {info.Version} отклонена юзером — тост не показываем");
+                return;
+            }
+
             // Microsoft.Windows.AppNotifications — единственный путь для WinUI 3 desktop MSIX
             // где toast click правильно доставляется приложению через NotificationInvoked event.
             // Classic Windows.UI.Notifications требует ComServer + [ComVisible] + CLSID активатор;
@@ -280,8 +359,11 @@ public sealed partial class TrayIconHost : UserControl
                     .AddArgument("action", "update")
                     .AddArgument("version", info.Version))
                 .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton("Позже")
-                    .AddArgument("action", "dismiss"));
+                    .AddArgument("action", "dismiss")
+                    .AddArgument("version", info.Version));
             var notification = builder.BuildNotification();
+            // Стабильный Tag — повторное уведомление заменяет предыдущее, а не копится.
+            notification.Tag = "monitune-update-available";
             Microsoft.Windows.AppNotifications.AppNotificationManager.Default.Show(notification);
         }
         catch (Exception ex) { App.LogStatic("ShowUpdateAvailable ex: " + ex.Message); }
@@ -326,12 +408,16 @@ public sealed partial class TrayIconHost : UserControl
         catch (Exception ex) { App.LogStatic("ShowDownloadProgress ex: " + ex.Message); }
 
         int lastPercent = -1;
+        // SequenceNumber должен строго возрастать: Windows отбрасывает данные с номером
+        // не больше уже показанного. Раньше здесь была константа 2 — то есть после первого
+        // апдейта прогресс замирал, юзер видел "0%" всю загрузку 86 МБ.
+        uint seq = 1;
         return new Progress<double>(frac =>
         {
             int p = (int)(frac * 100);
             if (p == lastPercent) return;
             lastPercent = p;
-            var data = new Microsoft.Windows.AppNotifications.AppNotificationProgressData(2)
+            var data = new Microsoft.Windows.AppNotifications.AppNotificationProgressData(++seq)
             {
                 Title = $"Загрузка MoniTune {version}",
                 Value = frac,
@@ -346,20 +432,23 @@ public sealed partial class TrayIconHost : UserControl
         });
     }
 
-    static volatile bool _updateInProgress;
+    // Флаг только для ручной ПРОВЕРКИ обновлений (сетевой запрос без установки).
+    // Защита от параллельной УСТАНОВКИ живёт в UpdateService — она общая для этого
+    // пути и для клика по тосту (App.InstallPendingUpdate).
+    static volatile bool _manualCheckInProgress;
     async void UpdateClick(object sender, RoutedEventArgs e)
     {
         var info = _pendingUpdate;
-        // Двойной клик "Обновить до X" в трее или toast → защита от параллельного download.
-        if (_updateInProgress)
-        {
-            App.LogStatic("UpdateClick: уже идёт download — пропуск повторного клика");
-            return;
-        }
+
         // Если update ещё не найден (default "Проверить обновления") — делаем force check.
         if (info == null)
         {
-            _updateInProgress = true;
+            if (_manualCheckInProgress)
+            {
+                App.LogStatic("UpdateClick: проверка уже идёт — пропуск повторного клика");
+                return;
+            }
+            _manualCheckInProgress = true;
             try
             {
                 App.LogStatic("User clicked 'Проверить обновления' — force check");
@@ -377,10 +466,15 @@ public sealed partial class TrayIconHost : UserControl
                 App.LogStatic("Manual check ex: " + ex);
                 ShowError("Не удалось проверить обновления: " + ex.Message);
             }
-            finally { _updateInProgress = false; }
+            finally { _manualCheckInProgress = false; }
             return;
         }
-        _updateInProgress = true;
+
+        if (UpdateService.InstallInProgress)
+        {
+            App.LogStatic("UpdateClick: установка уже идёт — пропуск повторного клика");
+            return;
+        }
         try
         {
             App.LogStatic($"User clicked update → {info.Version}");
@@ -389,22 +483,17 @@ public sealed partial class TrayIconHost : UserControl
             if (ok) App.LogStatic("Update installed — приложение должно перезапуститься");
             else
             {
-                // Убрать зависший progress toast ПЕРЕД показом error — иначе два уведомления параллельно
-                // (юзер видит "50% Скачиваю" и "Не удалось" одновременно, путается).
-                RemoveProgressToast();
+                // Прогресс-тост уже снят внутри DownloadAndInstallAsync (finally),
+                // здесь только сообщение об ошибке.
                 ShowError($"Не удалось установить обновление {info.Version}. Проверьте соединение и попробуйте позже.");
             }
         }
         catch (Exception ex)
         {
             App.LogStatic("UpdateClick ex: " + ex);
-            RemoveProgressToast();
             ShowError("Ошибка обновления: " + ex.Message);
         }
-        finally { _updateInProgress = false; }
     }
-
-    static void RemoveProgressToast() => RemoveProgressToastStatic();
 
     /// <summary>Убрать зависший progress-toast (например при download fail) — иначе юзер видит
     /// и progress "50% Скачиваю", и error "Не удалось" одновременно.</summary>

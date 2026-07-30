@@ -489,12 +489,27 @@ public sealed partial class MainWindow : Window
     // Обёртка для внешних вызовов (App.xaml.cs OnConfigChanged).
     public void RefreshMonitors() => _ = RefreshMonitorsAsync();
 
-    public async System.Threading.Tasks.Task RefreshMonitorsAsync()
+    /// <summary>Сообщение юзеру о результате обновления списка. Ставится из App,
+    /// чтобы показывать уведомление при вызове из меню трея — там кнопки нет,
+    /// и раньше дебаунс приводил к полному отсутствию реакции на клик.</summary>
+    public Action<string>? OnRefreshFeedback;
+
+    public async System.Threading.Tasks.Task RefreshMonitorsAsync(bool notify = false)
     {
         // Дебаунс: не чаще чем раз в 2 секунды.
         int now = Environment.TickCount;
-        if (_refreshInFlight) { App.LogStatic("RefreshMonitors: уже выполняется, пропуск"); return; }
-        if (unchecked(now - (int)_lastRefreshTick) < 2000) { App.LogStatic("RefreshMonitors: debounced"); return; }
+        if (_refreshInFlight)
+        {
+            App.LogStatic("RefreshMonitors: уже выполняется, пропуск");
+            if (notify) OnRefreshFeedback?.Invoke("Обновление списка мониторов уже выполняется…");
+            return;
+        }
+        if (unchecked(now - (int)_lastRefreshTick) < 2000)
+        {
+            App.LogStatic("RefreshMonitors: debounced");
+            if (notify) OnRefreshFeedback?.Invoke("Список мониторов только что обновлялся. Попробуйте через пару секунд.");
+            return;
+        }
         _refreshInFlight = true;
         _lastRefreshTick = now;
         try
@@ -517,6 +532,14 @@ public sealed partial class MainWindow : Window
             BuildCards();
             ddc.Rescan();
             App.LogStatic("RefreshMonitors: done");
+            if (notify)
+            {
+                var mons = ddc.SnapshotMonitors();
+                string names = mons.Count == 0
+                    ? "Мониторы не найдены"
+                    : $"Найдено мониторов: {mons.Count} — " + string.Join(", ", mons.ConvertAll(x => x.Name));
+                OnRefreshFeedback?.Invoke(names);
+            }
         }
         catch (Exception ex) { App.LogStatic("RefreshMonitorsAsync ex: " + ex); }
         finally
@@ -544,7 +567,11 @@ public sealed partial class MainWindow : Window
 
     const double TARGET_WIDTH_DIP = 400;
 
-    void FitToContent()
+    /// <summary>Подогнать размер окна под контент, но не выше рабочей области дисплея,
+    /// на котором окно будет показано. anchor — точка привязки (позиция иконки в трее):
+    /// по ней выбирается нужный дисплей, иначе масштаб и границы считались бы по текущей
+    /// (случайной) позиции ещё скрытого окна.</summary>
+    void FitToContent(Windows.Graphics.PointInt32? anchor = null)
     {
         var root = (FrameworkElement)Content;
         // Принудительный layout pass — без этого DesiredSize может быть 0
@@ -557,13 +584,28 @@ public sealed partial class MainWindow : Window
         uint dpi = Native.GetDpiForWindow(hwnd);
         double scale = dpi / 96.0;
 
-        // Грубая страховка от нулевой высоты: считаем минимум по числу карточек.
-        // Заголовок ~50 + (130 на карточку + 10 spacing) + padding 28 = base
-        double minHeightDip = 50 + ddc.Monitors.Count * 145 + 28;
+        // Страховка от нулевой высоты: минимум по числу карточек. У eDP карточка ниже —
+        // нет строки контраста, поэтому считаем по факту наличия контраста.
+        double minHeightDip = 50 + 28;
+        foreach (var m in ddc.SnapshotMonitors())
+            minHeightDip += m.IsEdp ? 100 : 145;
         double useHeight = Math.Max(desired.Height, minHeightDip);
 
         int w = (int)Math.Ceiling(TARGET_WIDTH_DIP * scale);
         int h = (int)Math.Ceiling(useHeight * scale) + (int)Math.Ceiling(4 * scale);
+
+        // Кламп по рабочей области: при 4+ мониторах контент выше экрана, и без этого
+        // нижние карточки оказывались за границей без возможности доступа. Прокрутку
+        // обеспечивает ScrollViewer вокруг CardsHost.
+        try
+        {
+            var area = anchor.HasValue
+                ? DisplayArea.GetFromPoint(anchor.Value, DisplayAreaFallback.Primary)
+                : DisplayArea.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd), DisplayAreaFallback.Primary);
+            int maxH = area.WorkArea.Height - 16;
+            if (maxH > 200 && h > maxH) h = maxH;
+        }
+        catch (Exception ex) { App.LogStatic("FitToContent clamp ex: " + ex.Message); }
 
         var aw = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
         aw.Resize(new Windows.Graphics.SizeInt32(w, h));
@@ -573,17 +615,15 @@ public sealed partial class MainWindow : Window
     {
         var hwnd = WindowNative.GetWindowHandle(this);
         var aw = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
+        var anchor = new Windows.Graphics.PointInt32(iconCenterX, iconTop);
 
-        // BUG1 fix: первая FitToContent на скрытом окне возвращает крошечный
-        // DesiredSize (WinUI не даёт полноценный layout pass на невидимом Content).
-        // Из-за этого первый Show показывает сжатое окно. Стратегия:
-        // (1) грубая подгонка сейчас — для стартовой позиции;
-        // (2) Show + Activate;
-        // (3) через DispatcherQueue после первого real layout — точная подгонка + coord fix.
-        FitToContent();
+        // Первый замер на скрытом окне возвращает заниженный DesiredSize (WinUI не даёт
+        // полноценный layout pass на невидимом Content), поэтому нужен второй проход
+        // после Show. Чтобы юзер не видел рывок размера и прыжок позиции, окно
+        // показывается прозрачным: Show → точный замер → позиционирование → fade-in.
+        FitToContent(anchor);
 
-        var display = DisplayArea.GetFromPoint(new Windows.Graphics.PointInt32(iconCenterX, iconTop), DisplayAreaFallback.Primary);
-        var wa = display.WorkArea;
+        var wa = DisplayArea.GetFromPoint(anchor, DisplayAreaFallback.Primary).WorkArea;
 
         void Position()
         {
@@ -600,26 +640,33 @@ public sealed partial class MainWindow : Window
         }
 
         Position();
+        // Держим содержимое невидимым: ShowAnim стартует уже на финальной геометрии.
+        // Именно RootGrid — тот же элемент, чью Opacity анимирует ShowAnim.
+        RootGrid.Opacity = 0;
         aw.Show();
         Activate();
         ForceToTop(hwnd);
         _focusPoll?.Start();
 
-        // BUG1 fix: после того как окно фактически показано, layout пройдёт
-        // на реальном визуальном дереве. Пересчитываем размер и позицию.
-        // TryEnqueue Low priority — выполнится после первого рендер-фрейма.
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             try
             {
-                FitToContent();
+                FitToContent(anchor);
                 Position();
             }
             catch (Exception ex) { App.LogStatic("ShowNearIcon post-show refit ex: " + ex.Message); }
+            finally
+            {
+                // Плавное появление уже на выверенных размере и позиции.
+                try { ShowAnim.Begin(); }
+                catch (Exception ex)
+                {
+                    App.LogStatic("ShowAnim ex: " + ex.Message);
+                    RootGrid.Opacity = 1;   // не оставить окно невидимым
+                }
+            }
         });
-
-        // Плавное появление: opacity 0→1 + slide-up
-        ShowAnim.Begin();
     }
 
     /// <summary>Принудительный вывод окна на передний план.

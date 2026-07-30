@@ -21,6 +21,11 @@ public class Settings
 
     /// <summary>Автоматически проверять обновления при старте (silent check + tray notification).</summary>
     public bool AutoCheckUpdates { get; set; } = true;
+    /// <summary>Версия, для которой юзер нажал «Позже». Уведомление об этой версии
+    /// больше не показывается — иначе тост про одно и то же обновление всплывал
+    /// каждые 4 часа и после каждого выхода из сна. Пункт меню трея при этом
+    /// остаётся доступным, ручная установка не блокируется.</summary>
+    public string? DismissedUpdateVersion { get; set; }
 
     /// <summary>Отправлять анонимные crash-репорты и диагностические данные (opt-in). По умолчанию выключено.</summary>
     public bool TelemetryEnabled { get; set; } = false;

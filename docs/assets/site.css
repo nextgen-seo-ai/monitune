@@ -293,6 +293,14 @@ td { color: var(--paper-dim); }
   background: rgba(237, 229, 210, 0.04);
 }
 .btn-ghost:hover { border-color: var(--amber); color: var(--amber); }
+button.btn { font-family: inherit; cursor: pointer; }
+
+/* Текущее состояние согласия на аналитику рядом с кнопкой */
+.analytics-state {
+  margin-left: 14px;
+  font-size: 13px;
+  color: var(--mute);
+}
 
 /* ── Подвал ────────────────────────────────── */
 .foot {

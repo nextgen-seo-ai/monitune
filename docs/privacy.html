@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Политика конфиденциальности — MoniTune</title>
-<meta name="description" content="Какие данные обрабатывает MoniTune: телеметрии нет, настройки хранятся локально, единственное сетевое обращение — проверка обновлений на GitHub, её можно отключить.">
+<meta name="description" content="Какие данные обрабатывает MoniTune: в приложении телеметрии нет, настройки хранятся локально, обновления берутся с GitHub. Счётчик сайта — только с вашего согласия.">
 <link rel="canonical" href="https://nextgen-seo-ai.github.io/monitune/privacy.html">
 <meta name="theme-color" content="#0B0E10">
 <meta name="robots" content="index, follow">
@@ -14,7 +14,7 @@
 <meta property="og:site_name" content="MoniTune">
 <meta property="og:locale" content="ru_RU">
 <meta property="og:title" content="Политика конфиденциальности — MoniTune">
-<meta property="og:description" content="Телеметрии нет, настройки локальны, сетевое обращение только для проверки обновлений.">
+<meta property="og:description" content="В приложении телеметрии нет, настройки локальны. Счётчик посещений сайта — только с вашего согласия.">
 <meta property="og:url" content="https://nextgen-seo-ai.github.io/monitune/privacy.html">
 <meta property="og:image" content="https://nextgen-seo-ai.github.io/monitune/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -36,15 +36,17 @@
     {
       "@type": "WebPage",
       "name": "Политика конфиденциальности MoniTune",
-      "description": "Описание обработки данных приложением MoniTune: отсутствие телеметрии, локальное хранение настроек, проверка обновлений на GitHub.",
+      "description": "Описание обработки данных приложением MoniTune и сайтом проекта: отсутствие телеметрии в приложении, локальное хранение настроек, проверка обновлений на GitHub, счётчик посещений сайта по согласию.",
       "inLanguage": "ru-RU",
       "url": "https://nextgen-seo-ai.github.io/monitune/privacy.html",
-      "dateModified": "2026-07-29",
+      "dateModified": "2026-07-30",
       "publisher": { "@type": "Organization", "name": "MoniTune", "url": "https://nextgen-seo-ai.github.io/monitune/" }
     }
   ]
 }
 </script>
+
+<script src="assets/analytics.js" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -69,16 +71,17 @@
 
 <h1>Политика конфиденциальности</h1>
 <p class="lede">
-  Действует для приложения MoniTune и этого сайта. Редакция от 29 июля 2026 года.
+  Действует для приложения MoniTune и этого сайта. Редакция от 30 июля 2026 года.
 </p>
 
 <h2>Коротко</h2>
 <ul>
   <li>Персональные данные не собираются и не передаются.</li>
-  <li>Телеметрии и аналитики использования нет.</li>
+  <li>В приложении нет ни телеметрии, ни аналитики использования.</li>
   <li>Учётные записи и регистрация не используются.</li>
   <li>Настройки хранятся только на вашем компьютере.</li>
-  <li>Единственное сетевое обращение — проверка обновлений на GitHub. Отключается в настройках.</li>
+  <li>Единственное сетевое обращение приложения — проверка обновлений на GitHub. Отключается в настройках.</li>
+  <li>На сайте есть счётчик посещений Google Analytics — он загружается только после вашего согласия. <a href="#analytics">Подробнее</a>.</li>
 </ul>
 
 <h2>Что программа хранит локально</h2>
@@ -140,11 +143,41 @@
   <li>Показ уведомлений об обновлениях через системный сервис уведомлений Windows.</li>
 </ul>
 
-<h2>Файлы cookie на сайте</h2>
+<h2 id="analytics">Аналитика и файлы cookie на сайте</h2>
 <p>
-  Этот сайт размещён на GitHub Pages, не устанавливает cookie и не использует системы
-  веб-аналитики. Страница статистики загружает публичные данные о выпусках через открытый
-  программный интерфейс GitHub без передачи каких-либо ваших данных.
+  Этот раздел относится только к сайту. Приложение MoniTune аналитику не использует —
+  ни при включённом счётчике, ни при выключенном.
+</p>
+<p>
+  На сайте установлен счётчик посещений <strong>Google Analytics 4</strong>. Он загружается
+  <strong>только после вашего явного согласия</strong>. Пока вы не нажали «Разрешить» в
+  баннере, скрипт счётчика не подключается: ни одного обращения к серверам Google и ни одной
+  cookie на вашем устройстве не появляется. Отказ запоминается и баннер больше не показывается.
+</p>
+<p>При согласии счётчик получает стандартный для веб-аналитики набор сведений:</p>
+<ul>
+  <li>адреса открытых страниц сайта и переходы между ними;</li>
+  <li>источник перехода — поисковая система, ссылка с другого сайта или прямой заход;</li>
+  <li>тип устройства, браузер, разрешение экрана, язык;</li>
+  <li>страна и город по IP-адресу (сам адрес усечён — передаётся с параметром анонимизации);</li>
+  <li>идентификатор в cookie <code>_ga</code>, по которому повторный визит отличается от нового.</li>
+</ul>
+<p>
+  Имя, электронная почта, содержимое экрана, сведения о ваших мониторах и любые данные из
+  приложения счётчику не передаются — он видит только посещения этих веб-страниц. Реклама и
+  ремаркетинг отключены. Обработка на стороне Google регулируется его
+  <a href="https://policies.google.com/privacy" rel="noopener nofollow">политикой конфиденциальности</a>.
+</p>
+<p>
+  Решение можно изменить в любой момент — кнопка ниже вернёт баннер выбора.
+</p>
+<p>
+  <button type="button" id="analytics-reset" class="btn btn-ghost">Изменить решение об аналитике</button>
+  <span id="analytics-state" class="analytics-state"></span>
+</p>
+<p>
+  Кроме счётчика сайт cookie не ставит. Страница статистики загружает публичные данные о
+  выпусках через открытый программный интерфейс GitHub без передачи каких-либо ваших данных.
 </p>
 
 <h2>Проверяемость</h2>
@@ -178,5 +211,36 @@
 </footer>
 
 </div>
+
+<script>
+// Кнопка управления согласием: работает после загрузки assets/analytics.js (defer)
+window.addEventListener('DOMContentLoaded', function () {
+  var btn = document.getElementById('analytics-reset');
+  var out = document.getElementById('analytics-state');
+  if (!btn || !out) return;
+
+  var labels = {
+    granted:  'сейчас: счётчик разрешён',
+    denied:   'сейчас: счётчик отключён',
+    unset:    'сейчас: выбор ещё не сделан',
+    disabled: 'счётчик на сайте не настроен'
+  };
+
+  function paint() {
+    var api = window.mtAnalytics;
+    var state = api ? api.state() : 'disabled';
+    out.textContent = labels[state] || '';
+    btn.disabled = (state === 'disabled');
+  }
+
+  btn.addEventListener('click', function () {
+    if (window.mtAnalytics) window.mtAnalytics.reset();
+    window.setTimeout(paint, 50);
+  });
+
+  paint();
+});
+</script>
+
 </body>
 </html>

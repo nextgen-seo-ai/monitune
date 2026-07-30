@@ -247,7 +247,9 @@ jobs:
           $iss = Get-Content "release\Setup.iss" -Raw
           $iss = $iss -replace '#define MyAppVersion "[^"]*"', ('#define MyAppVersion "${{ steps.version.outputs.version }}"')
           $iss = $iss -replace 'MonitorTune_1\.0\.0\.0_x64\.msixbundle', "MonitorTune_${{ steps.version.outputs.version }}_x64.msixbundle"
-          Set-Content -Path "release\Setup.iss" -Value $iss -NoNewline
+          # BOM обязателен: без него Inno Setup читает .iss в кодировке раннера
+          # (на windows-latest это не UTF-8) и русские надписи мастера ломаются
+          Set-Content -Path "release\Setup.iss" -Value $iss -NoNewline -Encoding utf8BOM
 
           Push-Location release
           & iscc /Q Setup.iss

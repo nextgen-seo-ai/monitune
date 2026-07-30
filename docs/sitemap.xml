@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
   <url>
     <loc>https://nextgen-seo-ai.github.io/monitune/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/"/>
     <lastmod>2026-07-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
@@ -11,8 +16,26 @@
       <image:title>MoniTune — регулятор яркости мониторов в трее Windows</image:title>
     </image:image>
   </url>
+
+  <url>
+    <loc>https://nextgen-seo-ai.github.io/monitune/en/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/"/>
+    <lastmod>2026-07-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://nextgen-seo-ai.github.io/monitune/og-image.png</image:loc>
+      <image:title>MoniTune — monitor brightness control in the Windows tray</image:title>
+    </image:image>
+  </url>
+
   <url>
     <loc>https://nextgen-seo-ai.github.io/monitune/faq.html</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/faq.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/faq.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/faq.html"/>
     <lastmod>2026-07-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
@@ -25,22 +48,83 @@
       <image:title>Настройки MoniTune: ночной режим и расписание</image:title>
     </image:image>
   </url>
+
+  <url>
+    <loc>https://nextgen-seo-ai.github.io/monitune/en/faq.html</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/faq.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/faq.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/faq.html"/>
+    <lastmod>2026-07-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://nextgen-seo-ai.github.io/monitune/screens/panel.png</image:loc>
+      <image:title>MoniTune panel with monitor cards</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://nextgen-seo-ai.github.io/monitune/screens/settings.png</image:loc>
+      <image:title>MoniTune settings: night mode and schedule</image:title>
+    </image:image>
+  </url>
+
   <url>
     <loc>https://nextgen-seo-ai.github.io/monitune/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/privacy.html"/>
     <lastmod>2026-07-30</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
+
+  <url>
+    <loc>https://nextgen-seo-ai.github.io/monitune/en/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/privacy.html"/>
+    <lastmod>2026-07-30</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
   <url>
     <loc>https://nextgen-seo-ai.github.io/monitune/eula.html</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/eula.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/eula.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/eula.html"/>
     <lastmod>2026-07-30</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
+
+  <url>
+    <loc>https://nextgen-seo-ai.github.io/monitune/en/eula.html</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/eula.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/eula.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/eula.html"/>
+    <lastmod>2026-07-30</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
   <url>
     <loc>https://nextgen-seo-ai.github.io/monitune/stats/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/stats/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/stats/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/stats/"/>
     <lastmod>2026-07-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.3</priority>
   </url>
+
+  <url>
+    <loc>https://nextgen-seo-ai.github.io/monitune/en/stats/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://nextgen-seo-ai.github.io/monitune/stats/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nextgen-seo-ai.github.io/monitune/en/stats/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nextgen-seo-ai.github.io/monitune/en/stats/"/>
+    <lastmod>2026-07-30</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.3</priority>
+  </url>
+
 </urlset>

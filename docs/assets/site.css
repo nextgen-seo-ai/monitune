@@ -302,6 +302,14 @@ button.btn { font-family: inherit; cursor: pointer; }
   color: var(--mute);
 }
 
+/* Пометка под скриншотами: язык интерфейса на снимках */
+.screens-note {
+  margin-top: -14px;
+  font-size: 13px;
+  color: var(--mute);
+  font-style: italic;
+}
+
 /* ── Подвал ────────────────────────────────── */
 .foot {
   margin-top: 80px;

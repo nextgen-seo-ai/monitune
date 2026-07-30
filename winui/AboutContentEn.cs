@@ -32,7 +32,7 @@ internal static class AboutContentEn
         "(OSD) menu uses.\n\n" +
         "A monitor's microcontroller has limited throughput when processing incoming DDC/CI " +
         "commands. Exceeding the acceptable command rate makes the controller misbehave: on " +
-        "some models the on-screen display stops working, the buttons stop responding and the " +
+        "some models the on-screen display stops working, the buttons stop responding, and the " +
         "indicators misbehave — a state that clears only after the monitor's power is cut. To keep things " +
         "stable, MoniTune throttles the command rate: consecutive commands to the same monitor " +
         "are at least one second apart. There is no background polling — the DDC/CI bus is " +
@@ -81,35 +81,35 @@ internal static class AboutContentEn
          "on-screen display (OSD) menu. Vendors name the option differently: DDC/CI, DDC, or an entry " +
          "in a service menu. If the option is missing entirely, the monitor does not support " +
          "software control and commands cannot be processed."),
-        ("Are HDMI, DisplayPort and USB-C connections supported",
+        ("Are HDMI, DisplayPort and USB-C connections supported?",
          "DDC/CI is supported by every major digital video interface: HDMI, DisplayPort, DVI " +
          "and USB-C in DP Alt Mode. How reliably it works depends on the particular monitor " +
          "model and on the quality of the signal cable."),
-        ("Does it work with a laptop's built-in display",
+        ("Does it work with a laptop's built-in display?",
          "Yes. Built-in laptop displays (eDP) have no physical DDC/CI channel, so MoniTune " +
          "controls their brightness through the WMI interface (WmiMonitorBrightness). The WMI " +
          "interface provides no contrast control for built-in displays — only brightness is " +
          "available. External monitors use DDC/CI over HDMI / DisplayPort / USB-C with " +
          "independent brightness and contrast."),
-        ("Does the program collect data or connect to the network",
+        ("Does the program collect data or connect to the network?",
          "There is no telemetry and no analytics. The program makes one network request — a " +
          "periodic check for new versions in the public github.com repository (roughly every 4 " +
          "hours and when waking from sleep). When an update is found the MSIX package is " +
          "downloaded and installed automatically. Nothing about you, your computer or your " +
          "monitors is sent. Update checking can be disabled in the Settings window."),
-        ("Do the values survive a reboot",
+        ("Do the values survive a reboot?",
          "Brightness and contrast are stored in the monitor's own non-volatile memory and " +
          "survive a power cycle. MoniTune sends commands only when you make a change; it does not restore " +
          "values at startup, to avoid putting unnecessary load on the monitor's controller."),
-        ("Why does the slider react with a delay",
+        ("Why does the slider react with a delay?",
          "The delay comes from the command rate limit. Consecutive commands to the same " +
          "monitor are at least one second apart, which lets the monitor's microcontroller " +
          "process them correctly and prevents it from misbehaving."),
-        ("What is night mode and how does it work",
+        ("What is night mode and how does it work?",
          "Night mode switches all connected monitors to reduced brightness and contrast after " +
          "saving the current daytime values. Switching it off restores the original settings. " +
          "The night values and the automatic schedule are configured in the Settings window."),
-        ("What is sync mode for",
+        ("What is sync mode for?",
          "With sync mode on, moving the brightness or contrast slider on any monitor applies the same change to " +
          "all the others at the same time. It makes it much quicker to adjust several displays as the " +
          "ambient light changes."),

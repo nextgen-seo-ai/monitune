@@ -18,8 +18,14 @@ public static class Loc
 {
     const string SettingAuto = "auto";
 
-    static ResourceLoader? _loader;
-    static ResourceLoader Loader => _loader ??= new ResourceLoader();
+    // ResourceLoader берёт язык из системных настроек и не смотрит на
+    // ApplicationLanguages.PrimaryLanguageOverride — это UWP-механизм, а Windows App SDK
+    // использует собственный MRT Core. Поэтому язык задаём явно, через квалификатор
+    // контекста: иначе переключатель в настройках не действует вообще.
+    static ResourceManager? _manager;
+    static ResourceContext? _context;
+
+    static ResourceManager Manager => _manager ??= new ResourceManager();
 
     /// <summary>Язык, реально применённый к интерфейсу: "ru-RU" или "en-US".</summary>
     public static string ActiveLanguage { get; private set; } = "ru-RU";
@@ -39,16 +45,26 @@ public static class Loc
 
         try
         {
-            // Пустая строка возвращает выбор системе — но мы всегда задаём язык явно,
-            // иначе при системном языке вне нашего списка ресурсы берутся непредсказуемо.
+            var ctx = Manager.CreateResourceContext();
+            ctx.QualifierValues["Language"] = wanted;
+            _context = ctx;
+        }
+        catch
+        {
+            // Не смогли создать контекст — строки возьмутся на языке системы.
+            _context = null;
+        }
+
+        try
+        {
+            // Дополнительно к контексту: влияет на форматирование дат и чисел
+            // в стандартных элементах, которые ресурсы не читают.
             Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = wanted;
         }
         catch
         {
-            // В неупакованном запуске override недоступен — останемся на языке системы.
+            // В неупакованном запуске override недоступен.
         }
-
-        _loader = null;   // пересоздать с новым языком
     }
 
     /// <summary>Во что превратится настройка языка на этой машине.</summary>
@@ -89,12 +105,27 @@ public static class Loc
     {
         try
         {
-            var v = Loader.GetString(key);
-            return string.IsNullOrEmpty(v) ? key : v;
+            // Strings\<язык>\Resources.resw попадает в карту как поддерево "Resources"
+            var map = Manager.MainResourceMap;
+            var v = Lookup(map, "Resources/" + key) ?? Lookup(map, key);
+            return string.IsNullOrEmpty(v) ? key : v!;
         }
         catch
         {
             return key;
+        }
+    }
+
+    static string? Lookup(ResourceMap map, string id)
+    {
+        try
+        {
+            var candidate = _context != null ? map.TryGetValue(id, _context) : map.TryGetValue(id);
+            return candidate?.ValueAsString;
+        }
+        catch
+        {
+            return null;
         }
     }
 

@@ -74,11 +74,15 @@ Filename: "powershell.exe"; \
     StatusMsg: "{cm:InstallingApp}"; \
     Flags: waituntilterminated runhidden
 
-; 3. Запустить приложение по окончании (опционально, чекбокс)
-Filename: "explorer.exe"; \
-    Parameters: "shell:AppsFolder\MonitorTune_xz878f8xj2bm6!App"; \
+; 3. Запустить приложение по окончании (опционально, чекбокс).
+; AUMID собираем из PackageFamilyName на месте, а не строкой в скрипте: хвост
+; PackageFamilyName — это хеш от Publisher, и при смене сертификата он меняется.
+; Зашитый хеш от прежнего сертификата молча ломал этот чекбокс — установка
+; проходила, а приложение не запускалось.
+Filename: "powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""$pfn = (Get-AppxPackage MonitorTune).PackageFamilyName; if ($pfn) { Start-Process ('shell:AppsFolder\' + $pfn + '!App') }"""; \
     Description: "{cm:LaunchApp}"; \
-    Flags: postinstall nowait skipifsilent shellexec
+    Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 ; При удалении убрать MSIX (сертификат и runtime оставляем — они могут быть нужны другим приложениям)

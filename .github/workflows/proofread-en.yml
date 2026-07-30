@@ -1,0 +1,62 @@
+# Проверка английских текстов на смешение британской и американской нормы.
+#
+# Сайт и приложение объявляют локаль en_US, но британские формы (licence,
+# behaviour, synchronised, per cent) проникают в текст незаметно. Один раз мы
+# это уже вычищали вручную; чтобы не разъехалось снова, проверка автоматическая.
+#
+# LanguageTool поднимается контейнером прямо на раннере — свой сервер, без
+# ограничений по частоте запросов и без обращений к чужому API.
+
+name: Английские тексты
+
+on:
+  push:
+    paths:
+      - 'docs/en/**'
+      - 'docs/404.html'
+      - 'winui/Strings/en-US/**'
+      - 'winui/AboutContentEn.cs'
+      - 'tools/proofread-en.py'
+      - '.github/workflows/proofread-en.yml'
+  pull_request:
+    paths:
+      - 'docs/en/**'
+      - 'docs/404.html'
+      - 'winui/Strings/en-US/**'
+      - 'winui/AboutContentEn.cs'
+  workflow_dispatch:
+
+jobs:
+  proofread:
+    runs-on: ubuntu-latest
+
+    services:
+      languagetool:
+        image: erikvl87/languagetool:latest
+        ports:
+          - 8010:8010
+        env:
+          Java_Xms: 512m
+          Java_Xmx: 2g
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Дождаться готовности LanguageTool
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf --data "text=test&language=en-US" http://localhost:8010/v2/check > /dev/null; then
+              echo "LanguageTool отвечает (попытка $i)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "LanguageTool не поднялся за 5 минут"
+          exit 1
+
+      - name: Проверить тексты
+        run: python tools/proofread-en.py --api http://localhost:8010/v2/check

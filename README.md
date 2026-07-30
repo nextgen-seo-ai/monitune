@@ -98,3 +98,19 @@ Downgrade заблокирован по-умолчанию — установк�
 - `KeepAwakeService.cs` — SetThreadExecutionState + SendInput
 - `UpdateService.cs` — auto-update с Ed25519 verify + WinVerifyTrust
 - `CrashReporter.cs` — UnhandledException handler
+
+### Локализация
+
+Строки интерфейса — `winui/Strings/<язык>/Resources.resw`, доступ через `Loc.S("Ключ")`.
+Язык ставится в `Program.Main` до `Application.Start`: XAML подставляет строки при
+загрузке разметки, после создания окон переключить уже нельзя. Логи не переводятся —
+их читает разработчик, и одинаковый текст в диагностике со всех машин удобнее.
+
+Английские тексты проверяются автоматически: `.github/workflows/proofread-en.yml`
+поднимает LanguageTool контейнером и прогоняет `tools/proofread-en.py` с локалью
+`en-US`. Сборка падает на словах вне американской нормы (`licence`, `behaviour`,
+`synchronised`), остальные замечания выводятся как предупреждения. Локально:
+
+```bash
+python tools/proofread-en.py
+```

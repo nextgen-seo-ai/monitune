@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ── Иконка в трее и её меню ─────────────────────────────── -->
+  <data name="TrayTooltip" xml:space="preserve">
+    <value>MoniTune — яркость и контраст</value>
+  </data>
+  <data name="MenuHeader" xml:space="preserve">
+    <value>MoniTune — яркость и контраст</value>
+  </data>
+  <data name="MenuOpen" xml:space="preserve">
+    <value>Открыть панель</value>
+  </data>
+  <data name="MenuRefresh" xml:space="preserve">
+    <value>Переопределить мониторы</value>
+  </data>
+  <data name="MenuCheckUpdates" xml:space="preserve">
+    <value>Проверить обновления</value>
+  </data>
+  <data name="MenuAutoStart" xml:space="preserve">
+    <value>Запускать с Windows</value>
+  </data>
+  <data name="MenuDiagnostic" xml:space="preserve">
+    <value>Собрать диагностику</value>
+  </data>
+  <data name="MenuAbout" xml:space="preserve">
+    <value>О программе</value>
+  </data>
+  <data name="MenuExit" xml:space="preserve">
+    <value>Выход</value>
+  </data>
+  <data name="MenuUpdateTo" xml:space="preserve">
+    <value>Обновить до {0}</value>
+  </data>
+  <data name="MenuDiagnosticWorking" xml:space="preserve">
+    <value>Собираю диагностику…</value>
+  </data>
+
+  <!-- ── Панель управления ───────────────────────────────────── -->
+  <data name="PanelSync" xml:space="preserve">
+    <value>Синхронно</value>
+  </data>
+  <data name="PanelSyncTip" xml:space="preserve">
+    <value>Все мониторы синхронно</value>
+  </data>
+  <data name="PanelRefreshTip" xml:space="preserve">
+    <value>Переопределить мониторы</value>
+  </data>
+  <data name="PanelNightTip" xml:space="preserve">
+    <value>Ночной режим</value>
+  </data>
+  <data name="PanelSettingsTip" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="PanelLinkTip" xml:space="preserve">
+    <value>Связать яркость и контраст</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>Яркость</value>
+  </data>
+  <data name="Contrast" xml:space="preserve">
+    <value>Контраст</value>
+  </data>
+  <data name="MonitorDetailsTip" xml:space="preserve">
+    <value>{0}
+пауза между командами: {1} мс
+задержка проверки: {2} мс</value>
+  </data>
+
+  <!-- ── Состояние мониторов ─────────────────────────────────── -->
+  <data name="BuiltInDisplay" xml:space="preserve">
+    <value>Встроенный дисплей</value>
+  </data>
+  <data name="MonitorFallbackName" xml:space="preserve">
+    <value>Монитор</value>
+  </data>
+  <data name="TechInternal" xml:space="preserve">
+    <value>Встроенный</value>
+  </data>
+  <data name="TechWireless" xml:space="preserve">
+    <value>Беспроводной (Miracast)</value>
+  </data>
+  <data name="ControlUnavailable" xml:space="preserve">
+    <value>Управление недоступно. {0}</value>
+  </data>
+  <data name="ReasonDisplayLink" xml:space="preserve">
+    <value>DisplayLink адаптер — управление яркостью через DDC/CI не передаётся</value>
+  </data>
+  <data name="ReasonInternalWmi" xml:space="preserve">
+    <value>Встроенный дисплей: Windows не отдаёт управление яркостью через WMI. Обновите драйвер видеокарты и проверьте, что служба «Display Brightness Service» не отключена.</value>
+  </data>
+  <data name="ReasonNoDdc" xml:space="preserve">
+    <value>Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)</value>
+  </data>
+  <data name="BannerDisplayLink" xml:space="preserve">
+    <value>Монитор подключён через USB-адаптер (DisplayLink). Управление яркостью по DDC/CI недоступно.</value>
+  </data>
+  <data name="BannerNoDdc" xml:space="preserve">
+    <value>Монитор не отвечает по DDC/CI. Проверьте что опция DDC/CI включена в экранном меню (OSD).</value>
+  </data>
+  <data name="BannerSystemControlled" xml:space="preserve">
+    <value>Яркость управляется системой (возможно HDR или Adaptive Brightness). Программное управление недоступно.</value>
+  </data>
+  <data name="BannerAdaptiveSync" xml:space="preserve">
+    <value>Похоже что включён FreeSync/G-Sync — DDC/CI ограничен. Отключите FreeSync в OSD для полного управления.</value>
+  </data>
+
+  <!-- ── Переопределение списка мониторов ────────────────────── -->
+  <data name="RefreshInProgress" xml:space="preserve">
+    <value>Обновление списка мониторов уже выполняется…</value>
+  </data>
+  <data name="RefreshTooSoon" xml:space="preserve">
+    <value>Список мониторов только что обновлялся. Попробуйте через пару секунд.</value>
+  </data>
+  <data name="RefreshNone" xml:space="preserve">
+    <value>Мониторы не найдены</value>
+  </data>
+  <data name="RefreshFound" xml:space="preserve">
+    <value>Найдено мониторов: {0} — {1}</value>
+  </data>
+
+  <!-- ── Настройки ───────────────────────────────────────────── -->
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="SettingsHeader" xml:space="preserve">
+    <value>Настройки MoniTune</value>
+  </data>
+  <data name="SettingsStepTitle" xml:space="preserve">
+    <value>Шаг изменения яркости и контраста</value>
+  </data>
+  <data name="SettingsStepHint" xml:space="preserve">
+    <value>На сколько процентов меняется значение при использовании горячих клавиш.</value>
+  </data>
+  <data name="SettingsNightTitle" xml:space="preserve">
+    <value>Ночной режим</value>
+  </data>
+  <data name="SettingsNightBrightness" xml:space="preserve">
+    <value>Яркость ночью</value>
+  </data>
+  <data name="SettingsNightContrast" xml:space="preserve">
+    <value>Контраст ночью</value>
+  </data>
+  <data name="SettingsSchedule" xml:space="preserve">
+    <value>Включать по расписанию</value>
+  </data>
+  <data name="SettingsFrom" xml:space="preserve">
+    <value>С</value>
+  </data>
+  <data name="SettingsTo" xml:space="preserve">
+    <value>До</value>
+  </data>
+  <data name="SettingsAwakeTitle" xml:space="preserve">
+    <value>Активность и сон</value>
+  </data>
+  <data name="SettingsAwakeHint" xml:space="preserve">
+    <value>Эти настройки помогают, когда компьютер должен оставаться активным во время длительных задач или презентаций. Имитация активности также удерживает статус «в сети» в Teams, Slack и других мессенджерах.</value>
+  </data>
+  <data name="SettingsVisibleMoveHint" xml:space="preserve">
+    <value>По умолчанию имитация невидима — это полноценное движение для системы и приложений, но курсор не сдвигается. Включите эту опцию, если хотите видеть подтверждение глазами: курсор будет смещаться на один пиксель и возвращаться.</value>
+  </data>
+  <data name="SettingsTelemetryHint" xml:space="preserve">
+    <value>Крэши всегда пишутся локально в папку crashes рядом с логом. При включённой опции они дополнительно отправляются на указанный endpoint. Личные данные не собираются.</value>
+  </data>
+  <data name="SettingsPreventSleep" xml:space="preserve">
+    <value>Не давать компьютеру и экрану засыпать</value>
+  </data>
+  <data name="SettingsSimulate" xml:space="preserve">
+    <value>Имитировать активность пользователя</value>
+  </data>
+  <data name="SettingsSimulateInterval" xml:space="preserve">
+    <value>Интервал имитации, секунды</value>
+  </data>
+  <data name="SettingsVisibleMove" xml:space="preserve">
+    <value>Видимое движение курсора</value>
+  </data>
+  <data name="SettingsUpdatesTitle" xml:space="preserve">
+    <value>Обновления и диагностика</value>
+  </data>
+  <data name="SettingsAutoCheck" xml:space="preserve">
+    <value>Автоматически проверять обновления при запуске</value>
+  </data>
+  <data name="SettingsCheckNow" xml:space="preserve">
+    <value>Проверить обновления сейчас</value>
+  </data>
+  <data name="SettingsDiagnosticTitle" xml:space="preserve">
+    <value>Отправка диагностики (crash-репорты + анонимные метрики)</value>
+  </data>
+  <data name="SettingsTelemetry" xml:space="preserve">
+    <value>Разрешить отправку анонимных crash-репортов</value>
+  </data>
+  <data name="SettingsLanguageTitle" xml:space="preserve">
+    <value>Язык интерфейса</value>
+  </data>
+  <data name="SettingsLanguageHint" xml:space="preserve">
+    <value>Новый язык применится после перезапуска приложения.</value>
+  </data>
+  <data name="SettingsLanguageAuto" xml:space="preserve">
+    <value>Как в Windows</value>
+  </data>
+  <data name="SettingsLanguageRu" xml:space="preserve">
+    <value>Русский</value>
+  </data>
+  <data name="SettingsLanguageEn" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="SettingsLanguageRestart" xml:space="preserve">
+    <value>Язык сменится при следующем запуске MoniTune.</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Закрыть</value>
+  </data>
+  <data name="UpdateChecking" xml:space="preserve">
+    <value>Проверка…</value>
+  </data>
+  <data name="UpdateUpToDate" xml:space="preserve">
+    <value>Установлена актуальная версия.</value>
+  </data>
+  <data name="UpdateFoundInTray" xml:space="preserve">
+    <value>Доступна версия {0}. Уведомление в трее.</value>
+  </data>
+  <data name="ErrorPrefix" xml:space="preserve">
+    <value>Ошибка: {0}</value>
+  </data>
+
+  <!-- ── Обновления ──────────────────────────────────────────── -->
+  <data name="ToastUpdateTitle" xml:space="preserve">
+    <value>Доступно обновление MoniTune {0}</value>
+  </data>
+  <data name="ToastUpdateBody" xml:space="preserve">
+    <value>Нажмите чтобы установить обновление</value>
+  </data>
+  <data name="ToastButtonUpdate" xml:space="preserve">
+    <value>Обновить</value>
+  </data>
+  <data name="ToastButtonLater" xml:space="preserve">
+    <value>Позже</value>
+  </data>
+  <data name="ToastDownloadTitle" xml:space="preserve">
+    <value>Загрузка MoniTune {0}</value>
+  </data>
+  <data name="ToastDownloadBody" xml:space="preserve">
+    <value>Обновление MoniTune {0}</value>
+  </data>
+  <data name="ToastDownloading" xml:space="preserve">
+    <value>Скачиваю обновление…</value>
+  </data>
+  <data name="ToastInstalling" xml:space="preserve">
+    <value>Устанавливаю…</value>
+  </data>
+  <data name="UpdatedTitle" xml:space="preserve">
+    <value>MoniTune обновлён до {0}</value>
+  </data>
+  <data name="UpdatedBody" xml:space="preserve">
+    <value>Продолжайте работать — новые исправления уже применены.</value>
+  </data>
+  <data name="UpdateFailedTitle" xml:space="preserve">
+    <value>Обновление не установилось</value>
+  </data>
+  <data name="UpdateFailedBody" xml:space="preserve">
+    <value>Не удалось перейти с {0} на {1}. Попробуйте позже через «Обновить до…» в меню трея.</value>
+  </data>
+  <data name="UpdateAlreadyLatest" xml:space="preserve">
+    <value>У вас уже последняя версия MoniTune {0}</value>
+  </data>
+  <data name="UpdateCheckFailed" xml:space="preserve">
+    <value>Не удалось проверить обновления: {0}</value>
+  </data>
+  <data name="UpdateInstallFailed" xml:space="preserve">
+    <value>Не удалось установить обновление {0}. Проверьте соединение и попробуйте позже.</value>
+  </data>
+  <data name="UpdateError" xml:space="preserve">
+    <value>Ошибка обновления: {0}</value>
+  </data>
+  <data name="UpdateUnavailable" xml:space="preserve">
+    <value>Обновление недоступно. Возможно вы уже на последней версии или нет соединения с GitHub.</value>
+  </data>
+  <data name="UpdateInstallFailedLog" xml:space="preserve">
+    <value>Не удалось установить обновление {0}. Смотрите лог в LocalCache.</value>
+  </data>
+  <data name="UpdateInstallError" xml:space="preserve">
+    <value>Ошибка установки: {0}</value>
+  </data>
+
+  <!-- ── Диагностика ─────────────────────────────────────────── -->
+  <data name="DiagnosticDone" xml:space="preserve">
+    <value>Диагностика собрана: {0} на Рабочем столе. Отправьте файл разработчику.</value>
+  </data>
+  <data name="DiagnosticFailed" xml:space="preserve">
+    <value>Не удалось собрать диагностику: {0}</value>
+  </data>
+
+  <!-- ── Автозапуск ──────────────────────────────────────────── -->
+  <data name="AutoStartDisabledByUser" xml:space="preserve">
+    <value>Автозапуск отключён вами в Настройках Windows. Включите его в:
+Параметры → Приложения → Автозагрузка → MoniTune.</value>
+  </data>
+  <data name="AutoStartBlockedByPolicy" xml:space="preserve">
+    <value>Автозапуск запрещён групповой политикой (обычно на рабочих ПК). Обратитесь к администратору.</value>
+  </data>
+  <data name="AutoStartRefused" xml:space="preserve">
+    <value>Windows не разрешила автозапуск (state={0}). Попробуйте включить вручную в Параметры → Приложения → Автозагрузка.</value>
+  </data>
+  <data name="AutoStartChangeFailed" xml:space="preserve">
+    <value>Не удалось изменить автозапуск: {0}</value>
+  </data>
+
+  <!-- ── Окно «О программе» ──────────────────────────────────── -->
+  <data name="AboutTitle" xml:space="preserve">
+    <value>О программе</value>
+  </data>
+  <data name="AboutVersion" xml:space="preserve">
+    <value>версия {0}</value>
+  </data>
+  <data name="AboutSectionFeatures" xml:space="preserve">
+    <value>Возможности</value>
+  </data>
+  <data name="AboutSectionAbout" xml:space="preserve">
+    <value>О программе</value>
+  </data>
+  <data name="AboutSectionHow" xml:space="preserve">
+    <value>Как это работает</value>
+  </data>
+  <data name="AboutSectionPrivacy" xml:space="preserve">
+    <value>Приватность</value>
+  </data>
+  <data name="AboutSectionFaq" xml:space="preserve">
+    <value>Частые вопросы</value>
+  </data>
+  <data name="AboutLicenseHeader" xml:space="preserve">
+    <value>Полный текст лицензионного соглашения</value>
+  </data>
+</root>

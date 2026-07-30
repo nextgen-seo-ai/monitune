@@ -13,6 +13,7 @@ public sealed partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        ApplyStrings();
 
         var hwnd = WindowNative.GetWindowHandle(this);
         var aw = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
@@ -38,6 +39,7 @@ public sealed partial class SettingsWindow : Window
         VisibleMoveSwitch.IsOn = s.KeepAwake.VisibleMove;
         AutoUpdateSwitch.IsOn = s.AutoCheckUpdates;
         TelemetrySwitch.IsOn = s.TelemetryEnabled;
+        LanguageBox.SelectedIndex = s.Language switch { "ru-RU" => 1, "en-US" => 2, _ => 0 };
         if (TimeOnly.TryParse(s.NightMode.StartTime, out var st))
             StartTimePicker.SelectedTime = new TimeSpan(st.Hour, st.Minute, 0);
         if (TimeOnly.TryParse(s.NightMode.EndTime, out var en))
@@ -50,6 +52,62 @@ public sealed partial class SettingsWindow : Window
             if (e.WindowActivationState == WindowActivationState.Deactivated)
                 Close();
         };
+    }
+
+    /// <summary>Все подписи окна — из ресурсов, разметка их не содержит.</summary>
+    void ApplyStrings()
+    {
+        Title                          = Loc.S("SettingsTitle");
+        HeaderText.Text                = Loc.S("SettingsHeader");
+
+        StepTitle.Text                 = Loc.S("SettingsStepTitle");
+        StepHint.Text                  = Loc.S("SettingsStepHint");
+
+        LanguageTitle.Text             = Loc.S("SettingsLanguageTitle");
+        LanguageHint.Text              = Loc.S("SettingsLanguageHint");
+        LanguageBox.Items.Add(Loc.S("SettingsLanguageAuto"));
+        LanguageBox.Items.Add(Loc.S("SettingsLanguageRu"));
+        LanguageBox.Items.Add(Loc.S("SettingsLanguageEn"));
+
+        NightTitle.Text                = Loc.S("SettingsNightTitle");
+        NightBrightnessLabel.Text      = Loc.S("SettingsNightBrightness");
+        NightContrastLabel.Text        = Loc.S("SettingsNightContrast");
+        ScheduleSwitch.Header          = Loc.S("SettingsSchedule");
+        FromLabel.Text                 = Loc.S("SettingsFrom");
+        ToLabel.Text                   = Loc.S("SettingsTo");
+
+        AwakeTitle.Text                = Loc.S("SettingsAwakeTitle");
+        AwakeHint.Text                 = Loc.S("SettingsAwakeHint");
+        PreventSleepSwitch.Header      = Loc.S("SettingsPreventSleep");
+        SimulateActivitySwitch.Header  = Loc.S("SettingsSimulate");
+        IntervalLabel.Text             = Loc.S("SettingsSimulateInterval");
+        VisibleMoveSwitch.Header       = Loc.S("SettingsVisibleMove");
+        VisibleMoveHint.Text           = Loc.S("SettingsVisibleMoveHint");
+
+        UpdatesTitle.Text              = Loc.S("SettingsUpdatesTitle");
+        AutoUpdateSwitch.Header        = Loc.S("SettingsAutoCheck");
+        CheckUpdatesButton.Content     = Loc.S("SettingsCheckNow");
+        DiagnosticTitle.Text           = Loc.S("SettingsDiagnosticTitle");
+        TelemetrySwitch.Header         = Loc.S("SettingsTelemetry");
+        TelemetryHint.Text             = Loc.S("SettingsTelemetryHint");
+
+        CloseButton.Content            = Loc.S("Close");
+    }
+
+    void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (loading) return;
+        var wanted = LanguageBox.SelectedIndex switch { 1 => "ru-RU", 2 => "en-US", _ => "auto" };
+        if (wanted == SettingsStore.Current.Language) return;
+
+        SettingsStore.Current.Language = wanted;
+        SettingsStore.Save();
+
+        // Открытые окна уже построены на прежнем языке, а XAML подставляет строки
+        // при загрузке разметки — поэтому честно говорим про перезапуск вместо
+        // частичного перевода интерфейса на лету.
+        LanguageStatus.Text = Loc.S("SettingsLanguageRestart");
+        App.LogStatic($"Settings: язык интерфейса → {wanted} (применится после перезапуска)");
     }
 
     void OnStepChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
@@ -132,22 +190,22 @@ public sealed partial class SettingsWindow : Window
 
     async void CheckUpdatesClick(object sender, RoutedEventArgs e)
     {
-        UpdateStatusText.Text = "Проверка…";
+        UpdateStatusText.Text = Loc.S("UpdateChecking");
         try
         {
             var info = await UpdateService.CheckAsync();
             if (info == null)
             {
-                UpdateStatusText.Text = "Установлена актуальная версия.";
+                UpdateStatusText.Text = Loc.S("UpdateUpToDate");
             }
             else
             {
-                UpdateStatusText.Text = $"Доступна версия {info.Version}. Уведомление в трее.";
+                UpdateStatusText.Text = Loc.F("UpdateFoundInTray", info.Version);
             }
         }
         catch (Exception ex)
         {
-            UpdateStatusText.Text = "Ошибка: " + ex.Message;
+            UpdateStatusText.Text = Loc.F("ErrorPrefix", ex.Message);
         }
     }
 

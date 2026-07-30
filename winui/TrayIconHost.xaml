@@ -5,9 +5,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:tb="using:H.NotifyIcon">
 
+    <!-- Подписи пунктов проставляются в конструкторе из Strings\<язык>\Resources.resw,
+         поэтому в разметке их нет: так пропавший ключ сразу виден, а не маскируется
+         русским текстом из XAML. -->
     <tb:TaskbarIcon
         x:Name="Tray"
-        ToolTipText="MoniTune — яркость и контраст"
         NoLeftClickDelay="True"
         ContextMenuMode="SecondWindow"
         LeftClickCommand="{x:Bind LeftClick}">
@@ -23,36 +25,35 @@
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Image Width="20" Height="20"
                            Source="ms-appx:///Assets/Square44x44Logo.targetsize-24_altform-unplated.png"/>
-                    <TextBlock VerticalAlignment="Center"
+                    <TextBlock x:Name="TrayToolTipText"
+                               VerticalAlignment="Center"
                                FontSize="13"
-                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                               Text="MoniTune — яркость и контраст"/>
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                 </StackPanel>
             </Border>
         </tb:TaskbarIcon.TrayToolTip>
         <tb:TaskbarIcon.ContextFlyout>
             <MenuFlyout x:Name="TrayMenu">
-                <MenuFlyoutItem x:Name="OpenMenuItem" Text="Открыть панель" Click="OpenClick">
+                <MenuFlyoutItem x:Name="OpenMenuItem" Click="OpenClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="OpenLocal"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
-                <MenuFlyoutItem x:Name="RefreshMenuItem" Text="Переопределить мониторы" Click="RefreshClick">
+                <MenuFlyoutItem x:Name="RefreshMenuItem" Click="RefreshClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Refresh"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem x:Name="UpdateMenuItem"
-                                Text="Проверить обновления"
                                 Click="UpdateClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Download"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
-                <ToggleMenuFlyoutItem x:Name="AutoStartItem" Text="Запускать с Windows" Click="AutoStartClick"/>
-                <MenuFlyoutItem x:Name="DiagnosticMenuItem" Text="Собрать диагностику" Click="DiagnosticClick">
+                <ToggleMenuFlyoutItem x:Name="AutoStartItem" Click="AutoStartClick"/>
+                <MenuFlyoutItem x:Name="DiagnosticMenuItem" Click="DiagnosticClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Save"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
-                <MenuFlyoutItem x:Name="AboutMenuItem" Text="О программе" Click="AboutClick">
+                <MenuFlyoutItem x:Name="AboutMenuItem" Click="AboutClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Help"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
-                <MenuFlyoutItem x:Name="ExitMenuItem" Text="Выход" Click="ExitClick">
+                <MenuFlyoutItem x:Name="ExitMenuItem" Click="ExitClick">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Cancel"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuFlyout>

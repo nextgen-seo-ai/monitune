@@ -719,13 +719,13 @@ public static class UpdateService
                     if (success)
                     {
                         App.LogStatic($"UpdateService: post-restart ok — обновлено до {targetVer}");
-                        ShowInfoNotification($"MoniTune обновлён до {targetVer}", "Продолжайте работать — новые исправления уже применены.");
+                        ShowInfoNotification(Loc.F("UpdatedTitle", targetVer), Loc.S("UpdatedBody"));
                     }
                     else if (failed)
                     {
                         App.LogStatic($"UpdateService: post-restart FAIL — остались на {fromVer}, целились в {targetVer}");
-                        ShowInfoNotification("Обновление не установилось",
-                            $"Не удалось перейти с {fromVer} на {targetVer}. Попробуйте позже через «Обновить до…» в меню трея.");
+                        ShowInfoNotification(Loc.S("UpdateFailedTitle"),
+                            Loc.F("UpdateFailedBody", fromVer, targetVer));
                     }
                 }
                 catch (Exception ex) { App.LogStatic("post-restart notification ex: " + ex.Message); }

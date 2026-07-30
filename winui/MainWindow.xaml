@@ -47,28 +47,25 @@
             <ToggleSwitch x:Name="SyncSwitch" Grid.Column="0"
                           OnContent="" OffContent=""
                           MinWidth="40"
-                          Toggled="OnSyncToggled"
-                          ToolTipService.ToolTip="Все мониторы синхронно"/>
+                          Toggled="OnSyncToggled"/>
             <TextBlock Grid.Column="1"
-                       Text="Синхронно"
+                       x:Name="SyncLabel"
                        FontSize="13"
                        Opacity="0.85"
                        VerticalAlignment="Center"/>
             <Button Grid.Column="3"
                     x:Name="RefreshBtn"
-                    Click="OnRefreshClick"
-                    ToolTipService.ToolTip="Переопределить мониторы">
+                    Click="OnRefreshClick">
                 <FontIcon Glyph="&#xE72C;"/>
             </Button>
             <Button Grid.Column="4"
                     x:Name="NightBtn"
-                    Click="OnNightClick"
-                    ToolTipService.ToolTip="Ночной режим">
+                    Click="OnNightClick">
                 <FontIcon Glyph="&#xE708;"/>
             </Button>
             <Button Grid.Column="5"
                     Click="OnSettingsClick"
-                    ToolTipService.ToolTip="Настройки">
+                    x:Name="SettingsBtn">
                 <FontIcon Glyph="&#xE713;"/>
             </Button>
         </Grid>

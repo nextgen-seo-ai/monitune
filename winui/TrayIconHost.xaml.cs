@@ -22,6 +22,7 @@ public sealed partial class TrayIconHost : UserControl
     {
         InitializeComponent();
         LeftClick = new Relay(() => OnOpen?.Invoke());
+        ApplyStrings();
         AutoStartItem.IsChecked = IsAutostart();
         // Фиксированный GUID для tray icon — Windows tracks позицию иконки в трее
         // через NIF_GUID (по Guid), а не по пути exe. Без этого при каждом MSIX-update
@@ -74,6 +75,20 @@ public sealed partial class TrayIconHost : UserControl
                 try { AutoStartItem.IsChecked = IsAutostart(); } catch { }
             };
         }
+    }
+
+    /// <summary>Подписи иконки и пунктов меню — из ресурсов, разметка их не содержит.</summary>
+    void ApplyStrings()
+    {
+        Tray.ToolTipText       = Loc.S("TrayTooltip");
+        TrayToolTipText.Text   = Loc.S("MenuHeader");
+        OpenMenuItem.Text      = Loc.S("MenuOpen");
+        RefreshMenuItem.Text   = Loc.S("MenuRefresh");
+        UpdateMenuItem.Text    = Loc.S("MenuCheckUpdates");
+        AutoStartItem.Text     = Loc.S("MenuAutoStart");
+        DiagnosticMenuItem.Text = Loc.S("MenuDiagnostic");
+        AboutMenuItem.Text     = Loc.S("MenuAbout");
+        ExitMenuItem.Text      = Loc.S("MenuExit");
     }
 
     void HookRightClickAsLeft(MenuFlyoutItem item, RoutedEventHandler click)
@@ -150,7 +165,7 @@ public sealed partial class TrayIconHost : UserControl
         try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
         string prevText = DiagnosticMenuItem.Text;
         DiagnosticMenuItem.IsEnabled = false;
-        DiagnosticMenuItem.Text = "Собираю диагностику…";
+        DiagnosticMenuItem.Text = Loc.S("MenuDiagnosticWorking");
         try
         {
             // Вся работа (до 20 МБ логов + WMI-запросы + zip) уходит с UI-потока:
@@ -158,7 +173,7 @@ public sealed partial class TrayIconHost : UserControl
             // на несколько секунд без единого индикатора.
             string zipPath = await System.Threading.Tasks.Task.Run(BuildDiagnosticZip);
             App.LogStatic($"diagnostic: сохранён {zipPath}");
-            ShowError($"Диагностика собрана: {System.IO.Path.GetFileName(zipPath)} на Рабочем столе. Отправьте файл разработчику.");
+            ShowError(Loc.F("DiagnosticDone", System.IO.Path.GetFileName(zipPath)));
             try
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -173,7 +188,7 @@ public sealed partial class TrayIconHost : UserControl
         catch (Exception ex)
         {
             App.LogStatic("DiagnosticClick ex: " + ex);
-            ShowError("Не удалось собрать диагностику: " + ex.Message);
+            ShowError(Loc.F("DiagnosticFailed", ex.Message));
         }
         finally
         {
@@ -332,7 +347,7 @@ public sealed partial class TrayIconHost : UserControl
         {
             if (UpdateMenuItem != null)
             {
-                UpdateMenuItem.Text = $"Обновить до {info.Version}";
+                UpdateMenuItem.Text = Loc.F("MenuUpdateTo", info.Version);
                 UpdateMenuItem.Visibility = Visibility.Visible;
             }
 
@@ -351,14 +366,14 @@ public sealed partial class TrayIconHost : UserControl
             // Classic Windows.UI.Notifications требует ComServer + [ComVisible] + CLSID активатор;
             // AppNotificationManager делает это автоматически.
             var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
-                .AddText($"Доступно обновление MoniTune {info.Version}")
-                .AddText(info.Notes ?? "Нажмите чтобы установить обновление")
+                .AddText(Loc.F("ToastUpdateTitle", info.Version))
+                .AddText(info.Notes ?? Loc.S("ToastUpdateBody"))
                 .AddArgument("action", "update")
                 .AddArgument("version", info.Version)
-                .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton("Обновить")
+                .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton(Loc.S("ToastButtonUpdate"))
                     .AddArgument("action", "update")
                     .AddArgument("version", info.Version))
-                .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton("Позже")
+                .AddButton(new Microsoft.Windows.AppNotifications.Builder.AppNotificationButton(Loc.S("ToastButtonLater"))
                     .AddArgument("action", "dismiss")
                     .AddArgument("version", info.Version));
             var notification = builder.BuildNotification();
@@ -389,15 +404,15 @@ public sealed partial class TrayIconHost : UserControl
         const string tag = "monitune-update-progress";
         var progressData = new Microsoft.Windows.AppNotifications.AppNotificationProgressData(1)
         {
-            Title = $"Загрузка MoniTune {version}",
+            Title = Loc.F("ToastDownloadTitle", version),
             Value = 0,
             ValueStringOverride = "0%",
-            Status = "Скачиваю обновление…",
+            Status = Loc.S("ToastDownloading"),
         };
         try
         {
             var builder = new Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder()
-                .AddText($"Обновление MoniTune {version}")
+                .AddText(Loc.F("ToastDownloadBody", version))
                 .AddProgressBar(new Microsoft.Windows.AppNotifications.Builder.AppNotificationProgressBar()
                     .BindTitle().BindValueStringOverride().BindStatus());
             var notification = builder.BuildNotification();
@@ -419,10 +434,10 @@ public sealed partial class TrayIconHost : UserControl
             lastPercent = p;
             var data = new Microsoft.Windows.AppNotifications.AppNotificationProgressData(++seq)
             {
-                Title = $"Загрузка MoniTune {version}",
+                Title = Loc.F("ToastDownloadTitle", version),
                 Value = frac,
                 ValueStringOverride = p + "%",
-                Status = p < 100 ? "Скачиваю обновление…" : "Устанавливаю…",
+                Status = p < 100 ? Loc.S("ToastDownloading") : Loc.S("ToastInstalling"),
             };
             try
             {
@@ -455,7 +470,7 @@ public sealed partial class TrayIconHost : UserControl
                 var found = await UpdateService.CheckAsync();
                 if (found == null)
                 {
-                    ShowError("У вас уже последняя версия MoniTune " + UpdateService.CurrentVersion());
+                    ShowError(Loc.F("UpdateAlreadyLatest", UpdateService.CurrentVersion()));
                 }
                 // если found != null — CheckAsync триггернул UpdateAvailable event →
                 // ShowUpdateAvailable → UpdateMenuItem.Text заменится на "Обновить до X.Y.Z"
@@ -464,7 +479,7 @@ public sealed partial class TrayIconHost : UserControl
             catch (Exception ex)
             {
                 App.LogStatic("Manual check ex: " + ex);
-                ShowError("Не удалось проверить обновления: " + ex.Message);
+                ShowError(Loc.F("UpdateCheckFailed", ex.Message));
             }
             finally { _manualCheckInProgress = false; }
             return;
@@ -485,13 +500,13 @@ public sealed partial class TrayIconHost : UserControl
             {
                 // Прогресс-тост уже снят внутри DownloadAndInstallAsync (finally),
                 // здесь только сообщение об ошибке.
-                ShowError($"Не удалось установить обновление {info.Version}. Проверьте соединение и попробуйте позже.");
+                ShowError(Loc.F("UpdateInstallFailed", info.Version));
             }
         }
         catch (Exception ex)
         {
             App.LogStatic("UpdateClick ex: " + ex);
-            ShowError("Ошибка обновления: " + ex.Message);
+            ShowError(Loc.F("UpdateError", ex.Message));
         }
     }
 
@@ -537,10 +552,10 @@ public sealed partial class TrayIconHost : UserControl
                 string reason = newState switch
                 {
                     Windows.ApplicationModel.StartupTaskState.DisabledByUser =>
-                        "Автозапуск отключён вами в Настройках Windows. Включите его в:\nПараметры → Приложения → Автозагрузка → MoniTune.",
+                        Loc.S("AutoStartDisabledByUser"),
                     Windows.ApplicationModel.StartupTaskState.DisabledByPolicy =>
-                        "Автозапуск запрещён групповой политикой (обычно на рабочих ПК). Обратитесь к администратору.",
-                    _ => $"Windows не разрешила автозапуск (state={newState}). Попробуйте включить вручную в Параметры → Приложения → Автозагрузка.",
+                        Loc.S("AutoStartBlockedByPolicy"),
+                    _ => Loc.F("AutoStartRefused", newState),
                 };
                 ShowError(reason);
             }
@@ -550,7 +565,7 @@ public sealed partial class TrayIconHost : UserControl
             App.LogStatic("AutoStartClick ex: " + ex.Message);
             // Синхронизируем UI с реальным state (откатим галочку если операция сфейлилась).
             try { AutoStartItem.IsChecked = IsAutostart(); } catch { }
-            ShowError("Не удалось изменить автозапуск: " + ex.Message);
+            ShowError(Loc.F("AutoStartChangeFailed", ex.Message));
         }
     }
 

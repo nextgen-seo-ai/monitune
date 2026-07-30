@@ -27,6 +27,10 @@ public class Settings
     /// остаётся доступным, ручная установка не блокируется.</summary>
     public string? DismissedUpdateVersion { get; set; }
 
+    /// <summary>Язык интерфейса: "auto" — по языку Windows, иначе "ru-RU" либо "en-US".
+    /// Применяется при старте (см. Loc.ApplyLanguage), смена требует перезапуска.</summary>
+    public string Language { get; set; } = "auto";
+
     /// <summary>Отправлять анонимные crash-репорты и диагностические данные (opt-in). По умолчанию выключено.</summary>
     public bool TelemetryEnabled { get; set; } = false;
 

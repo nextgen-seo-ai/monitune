@@ -266,7 +266,7 @@ public class DdcManager
                     string edpShortId = "eDP@" + edpDevTail;
                     var edpDeviceId = MonitorDeviceId(devices[i]);
                     var edpEdid = edpDeviceId != null ? EdidReader.Read(edpDeviceId) : null;
-                    string edpName = edpEdid?.MonitorName ?? "Встроенный дисплей";
+                    string edpName = edpEdid?.MonitorName ?? Loc.S("BuiltInDisplay");
                     list.Add(new MonInfo
                     {
                         Handle = IntPtr.Zero,   // eDP не имеет DDC handle

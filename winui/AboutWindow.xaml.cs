@@ -14,8 +14,11 @@ public sealed partial class AboutWindow : Window
     {
         InitializeComponent();
 
+        Title = Loc.S("AboutTitle");
+        CloseButton.Content = Loc.S("Close");
+
         var v = Windows.ApplicationModel.Package.Current.Id.Version;
-        VersionText.Text = $"версия {v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+        VersionText.Text = Loc.F("AboutVersion", $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}");
 
         var hwnd = WindowNative.GetWindowHandle(this);
         var aw = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
@@ -60,21 +63,21 @@ public sealed partial class AboutWindow : Window
         ContentHost.Children.Add(Paragraph(AboutContent.ShortPitch));
 
         // 2. Возможности.
-        ContentHost.Children.Add(Section("Возможности"));
+        ContentHost.Children.Add(Section(Loc.S("AboutSectionFeatures")));
         foreach (var f in AboutContent.Features)
             ContentHost.Children.Add(Bullet(f));
 
         // 4. Дальше — подробности.
-        ContentHost.Children.Add(Section("О программе"));
+        ContentHost.Children.Add(Section(Loc.S("AboutSectionAbout")));
         ContentHost.Children.Add(Paragraph(AboutContent.About));
 
-        ContentHost.Children.Add(Section("Как это работает"));
+        ContentHost.Children.Add(Section(Loc.S("AboutSectionHow")));
         ContentHost.Children.Add(Paragraph(AboutContent.HowItWorks));
 
-        ContentHost.Children.Add(Section("Приватность"));
+        ContentHost.Children.Add(Section(Loc.S("AboutSectionPrivacy")));
         ContentHost.Children.Add(Paragraph(AboutContent.Privacy));
 
-        ContentHost.Children.Add(Section("Частые вопросы"));
+        ContentHost.Children.Add(Section(Loc.S("AboutSectionFaq")));
         foreach (var (q, a) in AboutContent.Faq)
         {
             ContentHost.Children.Add(FaqQuestion(q));
@@ -85,7 +88,7 @@ public sealed partial class AboutWindow : Window
         // Лицензия — в свёрнутом блоке, чтобы не мешать обычному пользователю
         var license = new Expander
         {
-            Header = "Полный текст лицензионного соглашения",
+            Header = Loc.S("AboutLicenseHeader"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch
         };

@@ -18,7 +18,7 @@ public static class MonitorNameResolver
 
     public class Resolved
     {
-        public string Name = "Монитор";
+        public string Name = Loc.S("MonitorFallbackName");
         public string Source = "fallback";
     }
 
@@ -77,7 +77,7 @@ public static class MonitorNameResolver
 
         // 5. Final fallback — vendor (из БД если есть) + token
         var fallbackVendor = vendorName ?? MonitorDatabase.VendorByPnp(pnp);
-        var fallbackName = Compose(fallbackVendor, token ?? "Монитор");
+        var fallbackName = Compose(fallbackVendor, token ?? Loc.S("MonitorFallbackName"));
         if (!string.IsNullOrEmpty(devicePath)) _cache[devicePath!] = fallbackName;
         return new Resolved { Name = fallbackName, Source = "fallback" };
     }

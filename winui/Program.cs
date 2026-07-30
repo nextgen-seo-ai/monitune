@@ -37,6 +37,11 @@ public static class Program
         // (toast click, protocol handler и т.д.) — они приходят через это событие.
         mainInstance.Activated += (_, args) => App.HandleRedirectedActivation(args);
 
+        // Язык ставим до Application.Start: XAML с x:Uid подставляет строки в момент
+        // загрузки разметки, поэтому переключение после создания окон уже не подействует.
+        SettingsStore.Load();
+        Loc.ApplyLanguage(SettingsStore.Current.Language);
+
         Application.Start(p =>
         {
             var context = new DispatcherQueueSynchronizationContext(

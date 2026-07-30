@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ── Tray icon and its menu ──────────────────────────────── -->
+  <data name="TrayTooltip" xml:space="preserve">
+    <value>MoniTune — brightness and contrast</value>
+  </data>
+  <data name="MenuHeader" xml:space="preserve">
+    <value>MoniTune — brightness and contrast</value>
+  </data>
+  <data name="MenuOpen" xml:space="preserve">
+    <value>Open panel</value>
+  </data>
+  <data name="MenuRefresh" xml:space="preserve">
+    <value>Rescan monitors</value>
+  </data>
+  <data name="MenuCheckUpdates" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="MenuAutoStart" xml:space="preserve">
+    <value>Start with Windows</value>
+  </data>
+  <data name="MenuDiagnostic" xml:space="preserve">
+    <value>Collect diagnostics</value>
+  </data>
+  <data name="MenuAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="MenuExit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="MenuUpdateTo" xml:space="preserve">
+    <value>Update to {0}</value>
+  </data>
+  <data name="MenuDiagnosticWorking" xml:space="preserve">
+    <value>Collecting diagnostics…</value>
+  </data>
+
+  <!-- ── Control panel ───────────────────────────────────────── -->
+  <data name="PanelSync" xml:space="preserve">
+    <value>Sync</value>
+  </data>
+  <data name="PanelSyncTip" xml:space="preserve">
+    <value>Move all monitors together</value>
+  </data>
+  <data name="PanelRefreshTip" xml:space="preserve">
+    <value>Rescan monitors</value>
+  </data>
+  <data name="PanelNightTip" xml:space="preserve">
+    <value>Night mode</value>
+  </data>
+  <data name="PanelSettingsTip" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="PanelLinkTip" xml:space="preserve">
+    <value>Link brightness and contrast</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>Brightness</value>
+  </data>
+  <data name="Contrast" xml:space="preserve">
+    <value>Contrast</value>
+  </data>
+  <data name="MonitorDetailsTip" xml:space="preserve">
+    <value>{0}
+gap between commands: {1} ms
+verify delay: {2} ms</value>
+  </data>
+
+  <!-- ── Monitor state ───────────────────────────────────────── -->
+  <data name="BuiltInDisplay" xml:space="preserve">
+    <value>Built-in display</value>
+  </data>
+  <data name="MonitorFallbackName" xml:space="preserve">
+    <value>Monitor</value>
+  </data>
+  <data name="TechInternal" xml:space="preserve">
+    <value>Built-in</value>
+  </data>
+  <data name="TechWireless" xml:space="preserve">
+    <value>Wireless (Miracast)</value>
+  </data>
+  <data name="ControlUnavailable" xml:space="preserve">
+    <value>Control unavailable. {0}</value>
+  </data>
+  <data name="ReasonDisplayLink" xml:space="preserve">
+    <value>DisplayLink adapter — it does not pass DDC/CI brightness control through</value>
+  </data>
+  <data name="ReasonInternalWmi" xml:space="preserve">
+    <value>Built-in display: Windows is not exposing brightness control over WMI. Update the graphics driver and check that the Display Brightness Service is not disabled.</value>
+  </data>
+  <data name="ReasonNoDdc" xml:space="preserve">
+    <value>The monitor does not respond over DDC/CI (check whether DDC/CI is enabled in its OSD)</value>
+  </data>
+  <data name="BannerDisplayLink" xml:space="preserve">
+    <value>This monitor is connected through a USB adapter (DisplayLink). Brightness control over DDC/CI is not available.</value>
+  </data>
+  <data name="BannerNoDdc" xml:space="preserve">
+    <value>The monitor does not respond over DDC/CI. Check that DDC/CI is enabled in its on-screen menu (OSD).</value>
+  </data>
+  <data name="BannerSystemControlled" xml:space="preserve">
+    <value>Brightness is controlled by the system (HDR or Adaptive Brightness is likely on). Software control is unavailable.</value>
+  </data>
+  <data name="BannerAdaptiveSync" xml:space="preserve">
+    <value>FreeSync/G-Sync appears to be on — DDC/CI is limited. Turn FreeSync off in the OSD for full control.</value>
+  </data>
+
+  <!-- ── Rescanning monitors ─────────────────────────────────── -->
+  <data name="RefreshInProgress" xml:space="preserve">
+    <value>A monitor rescan is already running…</value>
+  </data>
+  <data name="RefreshTooSoon" xml:space="preserve">
+    <value>The monitor list was just refreshed. Try again in a couple of seconds.</value>
+  </data>
+  <data name="RefreshNone" xml:space="preserve">
+    <value>No monitors found</value>
+  </data>
+  <data name="RefreshFound" xml:space="preserve">
+    <value>Monitors found: {0} — {1}</value>
+  </data>
+
+  <!-- ── Settings ────────────────────────────────────────────── -->
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsHeader" xml:space="preserve">
+    <value>MoniTune settings</value>
+  </data>
+  <data name="SettingsStepTitle" xml:space="preserve">
+    <value>Brightness and contrast step</value>
+  </data>
+  <data name="SettingsStepHint" xml:space="preserve">
+    <value>How many per cent the value moves when you use a hotkey.</value>
+  </data>
+  <data name="SettingsNightTitle" xml:space="preserve">
+    <value>Night mode</value>
+  </data>
+  <data name="SettingsNightBrightness" xml:space="preserve">
+    <value>Brightness at night</value>
+  </data>
+  <data name="SettingsNightContrast" xml:space="preserve">
+    <value>Contrast at night</value>
+  </data>
+  <data name="SettingsSchedule" xml:space="preserve">
+    <value>Follow a schedule</value>
+  </data>
+  <data name="SettingsFrom" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="SettingsTo" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="SettingsAwakeTitle" xml:space="preserve">
+    <value>Activity and sleep</value>
+  </data>
+  <data name="SettingsAwakeHint" xml:space="preserve">
+    <value>These settings help when the computer has to stay active during a long task or a presentation. Simulated activity also keeps your status online in Teams, Slack and other messaging apps.</value>
+  </data>
+  <data name="SettingsVisibleMoveHint" xml:space="preserve">
+    <value>By default the simulation is invisible — the system and applications see a real movement, but the cursor does not shift. Turn this on if you want to see it happen: the cursor will move one pixel and back.</value>
+  </data>
+  <data name="SettingsTelemetryHint" xml:space="preserve">
+    <value>Crashes are always written locally to the crashes folder next to the log. With this option on they are additionally sent to the configured endpoint. No personal data is collected.</value>
+  </data>
+  <data name="SettingsPreventSleep" xml:space="preserve">
+    <value>Keep the computer and display awake</value>
+  </data>
+  <data name="SettingsSimulate" xml:space="preserve">
+    <value>Simulate user activity</value>
+  </data>
+  <data name="SettingsSimulateInterval" xml:space="preserve">
+    <value>Simulation interval, seconds</value>
+  </data>
+  <data name="SettingsVisibleMove" xml:space="preserve">
+    <value>Visible cursor movement</value>
+  </data>
+  <data name="SettingsUpdatesTitle" xml:space="preserve">
+    <value>Updates and diagnostics</value>
+  </data>
+  <data name="SettingsAutoCheck" xml:space="preserve">
+    <value>Check for updates on startup</value>
+  </data>
+  <data name="SettingsCheckNow" xml:space="preserve">
+    <value>Check for updates now</value>
+  </data>
+  <data name="SettingsDiagnosticTitle" xml:space="preserve">
+    <value>Diagnostic reporting (crash reports + anonymous metrics)</value>
+  </data>
+  <data name="SettingsTelemetry" xml:space="preserve">
+    <value>Allow sending anonymous crash reports</value>
+  </data>
+  <data name="SettingsLanguageTitle" xml:space="preserve">
+    <value>Interface language</value>
+  </data>
+  <data name="SettingsLanguageHint" xml:space="preserve">
+    <value>The new language applies after the app restarts.</value>
+  </data>
+  <data name="SettingsLanguageAuto" xml:space="preserve">
+    <value>Same as Windows</value>
+  </data>
+  <data name="SettingsLanguageRu" xml:space="preserve">
+    <value>Русский</value>
+  </data>
+  <data name="SettingsLanguageEn" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="SettingsLanguageRestart" xml:space="preserve">
+    <value>The language will change the next time MoniTune starts.</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="UpdateChecking" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+  <data name="UpdateUpToDate" xml:space="preserve">
+    <value>You have the current version.</value>
+  </data>
+  <data name="UpdateFoundInTray" xml:space="preserve">
+    <value>Version {0} is available. See the tray notification.</value>
+  </data>
+  <data name="ErrorPrefix" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+
+  <!-- ── Updates ─────────────────────────────────────────────── -->
+  <data name="ToastUpdateTitle" xml:space="preserve">
+    <value>MoniTune {0} is available</value>
+  </data>
+  <data name="ToastUpdateBody" xml:space="preserve">
+    <value>Click to install the update</value>
+  </data>
+  <data name="ToastButtonUpdate" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="ToastButtonLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="ToastDownloadTitle" xml:space="preserve">
+    <value>Downloading MoniTune {0}</value>
+  </data>
+  <data name="ToastDownloadBody" xml:space="preserve">
+    <value>MoniTune {0} update</value>
+  </data>
+  <data name="ToastDownloading" xml:space="preserve">
+    <value>Downloading the update…</value>
+  </data>
+  <data name="ToastInstalling" xml:space="preserve">
+    <value>Installing…</value>
+  </data>
+  <data name="UpdatedTitle" xml:space="preserve">
+    <value>MoniTune updated to {0}</value>
+  </data>
+  <data name="UpdatedBody" xml:space="preserve">
+    <value>Carry on — the new fixes are already in place.</value>
+  </data>
+  <data name="UpdateFailedTitle" xml:space="preserve">
+    <value>The update did not install</value>
+  </data>
+  <data name="UpdateFailedBody" xml:space="preserve">
+    <value>Could not move from {0} to {1}. Try later through “Update to…” in the tray menu.</value>
+  </data>
+  <data name="UpdateAlreadyLatest" xml:space="preserve">
+    <value>You already have the latest MoniTune {0}</value>
+  </data>
+  <data name="UpdateCheckFailed" xml:space="preserve">
+    <value>Could not check for updates: {0}</value>
+  </data>
+  <data name="UpdateInstallFailed" xml:space="preserve">
+    <value>Could not install update {0}. Check your connection and try again later.</value>
+  </data>
+  <data name="UpdateError" xml:space="preserve">
+    <value>Update error: {0}</value>
+  </data>
+  <data name="UpdateUnavailable" xml:space="preserve">
+    <value>No update available. You may already be on the latest version, or GitHub is unreachable.</value>
+  </data>
+  <data name="UpdateInstallFailedLog" xml:space="preserve">
+    <value>Could not install update {0}. See the log in LocalCache.</value>
+  </data>
+  <data name="UpdateInstallError" xml:space="preserve">
+    <value>Installation error: {0}</value>
+  </data>
+
+  <!-- ── Diagnostics ─────────────────────────────────────────── -->
+  <data name="DiagnosticDone" xml:space="preserve">
+    <value>Diagnostics collected: {0} on your Desktop. Send the file to the developer.</value>
+  </data>
+  <data name="DiagnosticFailed" xml:space="preserve">
+    <value>Could not collect diagnostics: {0}</value>
+  </data>
+
+  <!-- ── Start with Windows ──────────────────────────────────── -->
+  <data name="AutoStartDisabledByUser" xml:space="preserve">
+    <value>You disabled startup in Windows Settings. Turn it back on here:
+Settings → Apps → Startup → MoniTune.</value>
+  </data>
+  <data name="AutoStartBlockedByPolicy" xml:space="preserve">
+    <value>Startup is blocked by group policy (typical on work machines). Ask your administrator.</value>
+  </data>
+  <data name="AutoStartRefused" xml:space="preserve">
+    <value>Windows refused the startup request (state={0}). Try enabling it by hand in Settings → Apps → Startup.</value>
+  </data>
+  <data name="AutoStartChangeFailed" xml:space="preserve">
+    <value>Could not change the startup setting: {0}</value>
+  </data>
+
+  <!-- ── About window ────────────────────────────────────────── -->
+  <data name="AboutTitle" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="AboutVersion" xml:space="preserve">
+    <value>version {0}</value>
+  </data>
+  <data name="AboutSectionFeatures" xml:space="preserve">
+    <value>Features</value>
+  </data>
+  <data name="AboutSectionAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="AboutSectionHow" xml:space="preserve">
+    <value>How it works</value>
+  </data>
+  <data name="AboutSectionPrivacy" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="AboutSectionFaq" xml:space="preserve">
+    <value>Frequently asked questions</value>
+  </data>
+  <data name="AboutLicenseHeader" xml:space="preserve">
+    <value>Full text of the licence agreement</value>
+  </data>
+</root>

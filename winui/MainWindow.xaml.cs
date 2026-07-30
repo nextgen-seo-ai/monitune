@@ -36,6 +36,13 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         this.ddc = ddc;
 
+        // Подписи верхней панели — из ресурсов, разметка их не содержит
+        SyncLabel.Text = Loc.S("PanelSync");
+        ToolTipService.SetToolTip(SyncSwitch, Loc.S("PanelSyncTip"));
+        ToolTipService.SetToolTip(RefreshBtn, Loc.S("PanelRefreshTip"));
+        ToolTipService.SetToolTip(NightBtn, Loc.S("PanelNightTip"));
+        ToolTipService.SetToolTip(SettingsBtn, Loc.S("PanelSettingsTip"));
+
         var hwnd = WindowNative.GetWindowHandle(this);
         var appWindow = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
 
@@ -128,7 +135,7 @@ public sealed partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
         };
         linkBtn.Content = new FontIcon { Glyph = "", FontSize = 14 };   // Link symbol
-        ToolTipService.SetToolTip(linkBtn, "Связать яркость и контраст");
+        ToolTipService.SetToolTip(linkBtn, Loc.S("PanelLinkTip"));
         linkBtn.Click += (_, _) =>
         {
             ms.LinkBrightnessContrast = linkBtn.IsChecked == true;
@@ -149,7 +156,7 @@ public sealed partial class MainWindow : Window
         // 3) недоступно (DisplayLink / permanentlyUnavailable) — баннер "не работает"
         if (m.IsEdp)
         {
-            sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, "Яркость"));
+            sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, Loc.S("Brightness")));
             // Contrast не показываем — WMI не поддерживает.
         }
         else
@@ -158,11 +165,10 @@ public sealed partial class MainWindow : Window
             if (!ddcAvailable)
             {
                 string reason = m.DisplayLink
-                    ? "DisplayLink адаптер — управление яркостью через DDC/CI не передаётся"
+                    ? Loc.S("ReasonDisplayLink")
                     : m.OutputTechnology == OutputTech.Internal
-                        ? "Встроенный дисплей: Windows не отдаёт управление яркостью через WMI. "
-                          + "Обновите драйвер видеокарты и проверьте, что служба «Display Brightness Service» не отключена."
-                        : "Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)";
+                        ? Loc.S("ReasonInternalWmi")
+                        : Loc.S("ReasonNoDdc");
                 var unavailBanner = new Border
                 {
                     Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemControlBackgroundBaseLowBrush"],
@@ -170,7 +176,7 @@ public sealed partial class MainWindow : Window
                     Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
                     Child = new TextBlock
                     {
-                        Text = "Управление недоступно. " + reason,
+                        Text = Loc.F("ControlUnavailable", reason),
                         FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.85,
                     },
                 };
@@ -178,8 +184,8 @@ public sealed partial class MainWindow : Window
             }
             else
             {
-                sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, "Яркость"));
-                sp.Children.Add(BuildRow(idx, DdcManager.VCP_CONTRAST, "Контраст"));
+                sp.Children.Add(BuildRow(idx, DdcManager.VCP_BRIGHTNESS, Loc.S("Brightness")));
+                sp.Children.Add(BuildRow(idx, DdcManager.VCP_CONTRAST, Loc.S("Contrast")));
             }
         }
 
@@ -192,7 +198,7 @@ public sealed partial class MainWindow : Window
             TextWrapping = TextWrapping.Wrap,
             IsTextSelectionEnabled = true,
         };
-        ToolTipService.SetToolTip(info, $"{chain}\nthrottle: {m.WriteGapMs} мс\nverify delay: {m.VerifyDelayMs} мс");
+        ToolTipService.SetToolTip(info, Loc.F("MonitorDetailsTip", chain, m.WriteGapMs, m.VerifyDelayMs));
         sp.Children.Add(info);
 
         card.Child = sp;
@@ -229,8 +235,8 @@ public sealed partial class MainWindow : Window
         OutputTech.UsbC => "USB-C DP Alt",
         OutputTech.Dvi => "DVI",
         OutputTech.Vga => "VGA",
-        OutputTech.Internal => "Встроенный",
-        OutputTech.Wireless => "Беспроводной (Miracast)",
+        OutputTech.Internal => Loc.S("TechInternal"),
+        OutputTech.Wireless => Loc.S("TechWireless"),
         _ => "?",
     };
 
@@ -246,13 +252,13 @@ public sealed partial class MainWindow : Window
 
         string? msg = null;
         if (m.DisplayLink)
-            msg = "Монитор подключён через USB-адаптер (DisplayLink). Управление яркостью по DDC/CI недоступно.";
+            msg = Loc.S("BannerDisplayLink");
         else if (!m.DdcSupported)
-            msg = "Монитор не отвечает по DDC/CI. Проверьте что опция DDC/CI включена в экранном меню (OSD).";
+            msg = Loc.S("BannerNoDdc");
         else if (m.ReadOnlyBrightness)
-            msg = "Яркость управляется системой (возможно HDR или Adaptive Brightness). Программное управление недоступно.";
+            msg = Loc.S("BannerSystemControlled");
         else if (m.ProbablyFreeSync)
-            msg = "Похоже что включён FreeSync/G-Sync — DDC/CI ограничен. Отключите FreeSync в OSD для полного управления.";
+            msg = Loc.S("BannerAdaptiveSync");
         if (msg == null) return null;
         return new Border
         {
@@ -501,13 +507,13 @@ public sealed partial class MainWindow : Window
         if (_refreshInFlight)
         {
             App.LogStatic("RefreshMonitors: уже выполняется, пропуск");
-            if (notify) OnRefreshFeedback?.Invoke("Обновление списка мониторов уже выполняется…");
+            if (notify) OnRefreshFeedback?.Invoke(Loc.S("RefreshInProgress"));
             return;
         }
         if (unchecked(now - (int)_lastRefreshTick) < 2000)
         {
             App.LogStatic("RefreshMonitors: debounced");
-            if (notify) OnRefreshFeedback?.Invoke("Список мониторов только что обновлялся. Попробуйте через пару секунд.");
+            if (notify) OnRefreshFeedback?.Invoke(Loc.S("RefreshTooSoon"));
             return;
         }
         _refreshInFlight = true;
@@ -536,8 +542,8 @@ public sealed partial class MainWindow : Window
             {
                 var mons = ddc.SnapshotMonitors();
                 string names = mons.Count == 0
-                    ? "Мониторы не найдены"
-                    : $"Найдено мониторов: {mons.Count} — " + string.Join(", ", mons.ConvertAll(x => x.Name));
+                    ? Loc.S("RefreshNone")
+                    : Loc.F("RefreshFound", mons.Count, string.Join(", ", mons.ConvertAll(x => x.Name)));
                 OnRefreshFeedback?.Invoke(names);
             }
         }

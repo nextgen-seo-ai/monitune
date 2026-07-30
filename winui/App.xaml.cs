@@ -357,7 +357,7 @@ public partial class App : Application
             if (info == null)
             {
                 LogStatic("Toast install: пусто — обновление уже установлено или проверка не удалась");
-                app?._trayWindow?.Tray?.ShowError("Обновление недоступно. Возможно вы уже на последней версии или нет соединения с GitHub.");
+                app?._trayWindow?.Tray?.ShowError(Loc.S("UpdateUnavailable"));
                 return;
             }
             // Защита от двойного запуска — в UpdateService (общая с путём из меню трея).
@@ -371,12 +371,12 @@ public partial class App : Application
             bool ok = await UpdateService.DownloadAndInstallAsync(info, progress);
             // Прогресс-тост снимается внутри DownloadAndInstallAsync (finally) на любом провале.
             if (!ok)
-                app?._trayWindow?.Tray?.ShowError($"Не удалось установить обновление {info.Version}. Смотрите лог в LocalCache.");
+                app?._trayWindow?.Tray?.ShowError(Loc.F("UpdateInstallFailedLog", info.Version));
         }
         catch (Exception ex)
         {
             LogStatic("InstallPendingUpdate ex: " + ex);
-            (Current as App)?._trayWindow?.Tray?.ShowError("Ошибка установки: " + ex.Message);
+            (Current as App)?._trayWindow?.Tray?.ShowError(Loc.F("UpdateInstallError", ex.Message));
         }
     }
 

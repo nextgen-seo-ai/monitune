@@ -19,6 +19,8 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Язык, на который приложение откатывается, если перевода нет. -->
+    <DefaultLanguage>ru-RU</DefaultLanguage>
 
     <!-- MSIX подпись — ключ подставляется CI (GitHub Actions) через MSIX_SIGNING_KEY_PATH.
          Локальная разработка без MSIX packaging: dotnet build без /p:GenerateAppxPackageOnBuild=true.
@@ -67,6 +69,10 @@
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
     <EmbeddedResource Include="BuildResources\pnp_vendors.tsv.gz" />
     <EmbeddedResource Include="BuildResources\monitor_models.tsv.gz" />
+    <!-- Строки интерфейса лежат в Strings\<язык>\Resources.resw и попадают в
+         resources.pri автоматически: SDK сам добавляет их как PRIResource,
+         объявлять здесь нельзя — получим NETSDK1022 о дублировании.
+         Языки в манифесте тоже перечислять не нужно, там x-generate. -->
   </ItemGroup>
 
   <ItemGroup>

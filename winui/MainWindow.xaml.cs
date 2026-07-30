@@ -19,9 +19,16 @@ public sealed partial class MainWindow : Window
     Microsoft.UI.Xaml.DispatcherTimer? _focusPoll;
     bool suppress;
     // Ключи слайдеров, которые user сейчас драгает pointer'ом. Пока drag активен,
-    // не сдвигаем slider из background Raise'ов (иначе Samsung с throttle 200ms
+    // не сдвигаем ЭТОТ slider из background Raise'ов (иначе Samsung с throttle 200ms
     // "прыгает" когда возвращается old value пока user уже перетащил дальше).
+    // Важно: гейт пер-ключевой. Раньше проверялось _draggingKeys.Count == 0 — тогда
+    // удержание одного слайдера замораживало ВСЕ, и в sync-режиме зеркала не двигались.
     readonly HashSet<string> _draggingKeys = new();
+    // Последнее значение, которое МЫ попросили выставить (свой слайдер / зеркало sync /
+    // пара link), с временем запроса. Нужно чтобы отличить устаревший Raise из середины
+    // драга от актуального ответа железа.
+    readonly Dictionary<string, (long Tick, int Value)> _lastRequested = new();
+    const int StaleRaiseWindowMs = 1500;
     public NightMode? NightMode;   // ставится извне (App), кнопка дёргает
 
     public MainWindow(DdcManager ddc)
@@ -50,7 +57,13 @@ public sealed partial class MainWindow : Window
         {
             App.LogStatic($"MainWindow.Activated: {e.WindowActivationState}");
             if (e.WindowActivationState == WindowActivationState.Deactivated)
+            {
+                // Страховка от залипания: если окно ушло из фокуса во время drag'а,
+                // PointerReleased/CaptureLost может не прийти — ключ остался бы в наборе
+                // и слайдер навсегда перестал реагировать на значения от железа.
+                _draggingKeys.Clear();
                 appWindow.Hide();
+            }
         };
 
         // Дополнительный механизм: WinUI 3 не всегда шлёт Deactivated на borderless окно.
@@ -371,24 +384,54 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    void SetUiValue(int idx, byte vcp, int value)
+    /// <summary>Записать значение в UI.
+    /// fromHardware=false — источник действие юзера (свой слайдер, зеркало sync, пара link):
+    ///   двигаем всегда и запоминаем как "мы это просили".
+    /// fromHardware=true — пришёл Raise из воркера после реальной записи/чтения VCP:
+    ///   двигаем только если слайдер не под пальцем и значение не устарело.</summary>
+    void SetUiValue(int idx, byte vcp, int value, bool fromHardware = false)
     {
         string key = idx + ":" + vcp;
         if (!bars.TryGetValue(key, out var sl)) return;
-        // Пока ХОТЬ ОДИН slider занят user'ом (pointer или клавиатура),
-        // не двигаем НИ ОДИН slider из background Raise'ов. Иначе throttle-задержанный
-        // Raise со старым значением "прыгает" против уже смещённого:
-        // — на текущем slider'е (базовый anti-jump)
-        // — на зеркале при SyncAllMonitors=true (второй монитор)
-        // — на паре при LinkBrightnessContrast=true (Contrast если крутим Brightness)
-        // Текст справа обновляем всегда — user хочет видеть подтверждённое значение.
-        if (_draggingKeys.Count == 0)
+
+        if (!fromHardware)
+        {
+            // Действие юзера: слайдер обязан встать на запрошенное значение — и тот, что
+            // тянут, и зеркала при sync/link. Запоминаем, чтобы отсеять устаревшие Raise.
+            _lastRequested[key] = (Environment.TickCount64, value);
+            suppress = true;
+            sl.Value = Math.Clamp(value, 0, 100);
+            suppress = false;
+            vals[key].Text = value + "%";
+            return;
+        }
+
+        // Значение от железа. Слайдер под пальцем не трогаем вообще — иначе он дёргается
+        // против движения мыши (throttle у Samsung по DP доходит до 1 сек).
+        bool underPointer = _draggingKeys.Contains(key);
+
+        // Отсекаем устаревший Raise: если мы недавно просили другое значение, то этот
+        // ответ относится к более раннему шагу драга. Через StaleRaiseWindowMs доверяем
+        // железу снова — так реальное расхождение (монитор не принял значение) всё равно
+        // доедет до UI. Именно здесь раньше стоял глобальный гейт _draggingKeys.Count == 0,
+        // из-за которого в sync-режиме зеркальные слайдеры не двигались совсем.
+        bool stale = _lastRequested.TryGetValue(key, out var last)
+                     && last.Value != value
+                     && Environment.TickCount64 - last.Tick < StaleRaiseWindowMs;
+
+        if (!underPointer && !stale)
         {
             suppress = true;
             sl.Value = Math.Clamp(value, 0, 100);
             suppress = false;
+            vals[key].Text = value + "%";
         }
-        vals[key].Text = value + "%";
+        else if (!underPointer)
+        {
+            // Слайдер оставляем на пользовательской позиции, но подтверждённое железом
+            // значение показываем в тексте — видно если монитор реально не принял.
+            vals[key].Text = value + "%";
+        }
     }
 
     public void SetValue(int idx, byte vcp, int value)
@@ -402,7 +445,7 @@ public sealed partial class MainWindow : Window
             sl.Opacity = 0.5;
             return;
         }
-        SetUiValue(idx, vcp, value);
+        SetUiValue(idx, vcp, value, fromHardware: true);
         sl.IsEnabled = true;
         sl.Opacity = 1.0;
     }
@@ -469,6 +512,7 @@ public sealed partial class MainWindow : Window
             vals.Clear();
             linkBtns.Clear();
             _draggingKeys.Clear();   // stale keys — Slider объекты уничтожены
+            _lastRequested.Clear();  // индексы мониторов после Refresh другие
             CardsHost.Children.Clear();
             BuildCards();
             ddc.Rescan();

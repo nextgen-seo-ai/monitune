@@ -40,30 +40,46 @@ public static class Loc
     /// </summary>
     public static void ApplyLanguage(string? setting)
     {
-        var wanted = Normalize(setting);
-        ActiveLanguage = wanted;
-
-        try
-        {
-            var ctx = Manager.CreateResourceContext();
-            ctx.QualifierValues["Language"] = wanted;
-            _context = ctx;
-        }
-        catch
-        {
-            // Не смогли создать контекст — строки возьмутся на языке системы.
-            _context = null;
-        }
+        // Здесь только запоминаем выбор. Ресурсный контекст создаётся лениво при
+        // первом обращении за строкой: ApplyLanguage вызывается из Program.Main
+        // до Application.Start, и ResourceManager на этом этапе создаётся не всегда.
+        // Раньше контекст строился прямо здесь, а неудача молча гасилась catch —
+        // язык навсегда оставался системным, и переключатель в настройках не работал.
+        ActiveLanguage = Normalize(setting);
+        _context = null;
 
         try
         {
             // Дополнительно к контексту: влияет на форматирование дат и чисел
             // в стандартных элементах, которые ресурсы не читают.
-            Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = wanted;
+            Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = ActiveLanguage;
         }
         catch
         {
             // В неупакованном запуске override недоступен.
+        }
+    }
+
+    /// <summary>Ресурсный контекст с выбранным языком. Создаётся при первом обращении
+    /// и переживает неудачные ранние попытки: пока контекст не построен, пробуем снова.</summary>
+    static ResourceContext? Context
+    {
+        get
+        {
+            if (_context != null) return _context;
+            try
+            {
+                var ctx = Manager.CreateResourceContext();
+                ctx.QualifierValues["Language"] = ActiveLanguage;
+                _context = ctx;
+            }
+            catch (Exception ex)
+            {
+                // Молча не гасим: без этой записи потерю языка невозможно объяснить по логу.
+                App.LogStatic("Loc: не удалось создать ресурсный контекст — " + ex.Message);
+                _manager = null;   // на следующем обращении попробуем заново
+            }
+            return _context;
         }
     }
 
@@ -120,7 +136,8 @@ public static class Loc
     {
         try
         {
-            var candidate = _context != null ? map.TryGetValue(id, _context) : map.TryGetValue(id);
+            var ctx = Context;
+            var candidate = ctx != null ? map.TryGetValue(id, ctx) : map.TryGetValue(id);
             return candidate?.ValueAsString;
         }
         catch

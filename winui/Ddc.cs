@@ -56,6 +56,11 @@ public class MonInfo
     public bool DdcPermanentlyUnavailable;
     /// <summary>Последний Win32 error из ReadRetry/SafeWrite — показать в статус-баре.</summary>
     public int LastErrorCode;
+
+    /// <summary>Сколько обращений подряд закончились ничем. Сбрасывается на первом успехе.
+    /// Нужен, чтобы неотвечающий монитор не занимал шину длинными сериями повторов,
+    /// пока исправные ждут очереди.</summary>
+    public int ConsecutiveFailures;
 }
 
 public enum OutputTech
@@ -139,6 +144,55 @@ public class DdcManager
     public void Start() { worker = new Thread(Loop) { IsBackground = true }; worker.Start(); }
 
     readonly object _monitorsLock = new();
+
+    /// <summary>Шлюз шины DDC/CI: одна транзакция во всей системе за раз.
+    ///
+    /// DDC/CI — это I2C с жёсткими таймингами, и драйвер видеокарты не обязан
+    /// разруливать одновременные обращения к разным выходам. Пока мониторы
+    /// обрабатывались параллельно (каждый в своём Task), два потока лезли на шину
+    /// одновременно и обмен сбивался: монитор возвращал ERROR_GRAPHICS_DDCCI_
+    /// MONITOR_RETURNED_INVALID_TIMING_STATUS_BYTE (0xC0262582), после чего канал
+    /// залипал до переинициализации железа — не помогали ни перезапуск приложения,
+    /// ни обесточивание монитора, ни сброс графического драйвера.
+    ///
+    /// Параллельность оставлена (её смысл — чтобы мёртвый монитор не подвешивал
+    /// живой), но к железу потоки теперь заходят строго по одному.
+    /// Порядок захвата везде одинаковый: сначала m.OpLock, затем шлюз — иначе взаимная блокировка.</summary>
+    static readonly SemaphoreSlim _busGate = new(1, 1);
+
+    /// <summary>Кому шина отдавалась в прошлый раз и когда — для паузы при пересадке.</summary>
+    static Guid _busLastOwner;
+    static long _busLastReleaseTick;
+
+    /// <summary>Пауза при переходе шины от одного монитора к другому.
+    /// Контроллеру нужно закончить предыдущий обмен: сразу после чужой транзакции
+    /// ответ приходит битым даже на исправном канале.</summary>
+    const int BusSwitchGapMs = 60;
+
+    /// <summary>После стольких неудач подряд монитор опрашивается одной попыткой
+    /// вместо серии: если канал мёртв, долбить его бесполезно и вредно.</summary>
+    const int QuietAfterFailures = 3;
+
+    /// <summary>Выполнить операцию с железом монопольно. Вызывать под m.OpLock.</summary>
+    static T OnBus<T>(MonInfo m, Func<T> op)
+    {
+        _busGate.Wait();
+        try
+        {
+            if (_busLastOwner != m.Id && _busLastOwner != Guid.Empty)
+            {
+                int since = (int)(Environment.TickCount64 - _busLastReleaseTick);
+                if (since < BusSwitchGapMs) Thread.Sleep(BusSwitchGapMs - since);
+            }
+            return op();
+        }
+        finally
+        {
+            _busLastOwner = m.Id;
+            _busLastReleaseTick = Environment.TickCount64;
+            _busGate.Release();
+        }
+    }
 
     /// <summary>Принудительное переоткрытие списка мониторов и их DDC-каналов.
     /// Закрывает старые physical handles, очищает Monitors, заново enumerate.
@@ -551,7 +605,7 @@ public class DdcManager
                 // VCP отвечает, а CapabilitiesRequestAndCapabilitiesReply нет).
                 // 4 попытки хватит: если поддерживает — отвечает с 1-2й.
                 // Reopen+retry не делаем — при handle stale отработает SafeRead.
-                var caps = ReadCapsRetry(m.Handle, 4);
+                var caps = OnBus(m, () => ReadCapsRetry(m.Handle, 4));
                 if (caps == null)
                 {
                     int err = Marshal.GetLastWin32Error();
@@ -588,11 +642,16 @@ public class DdcManager
                 }
                 // Для Samsung + DP базовые 4 попытки часто мало (капризный DDC/CI-канал).
                 int attempts = (m.WriteGapMs >= 200) ? 6 : 4;
-                int val = ReadRetry(m.Handle, vcp, attempts, out int maxRaw);
+                // Монитор, который уже подряд не отвечает, не должен занимать шину
+                // длинной серией повторов — живые мониторы ждут своей очереди.
+                if (m.ConsecutiveFailures >= QuietAfterFailures) attempts = 1;
+                int maxRaw = 0;
+                int val = OnBus(m, () => ReadRetry(m.Handle, vcp, attempts, out maxRaw));
                 if (val < 0)
                 {
                     int err = Marshal.GetLastWin32Error();
                     m.LastErrorCode = err;
+                    m.ConsecutiveFailures++;
                     // Всегда пробуем переоткрыть handle если чтение упало — Samsung DP
                     // часто отдаёт разные err codes (0, 87, 1F, ...) на битый DDC.
                     // Один re-open + повторный длинный retry намного лучше молчаливого -1.
@@ -601,12 +660,13 @@ public class DdcManager
                     m.Handle = IntPtr.Zero;
                     if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
                     {
-                        val = ReadRetry(m.Handle, vcp, attempts, out maxRaw);
+                        val = OnBus(m, () => ReadRetry(m.Handle, vcp, attempts, out maxRaw));
                         if (val >= 0) Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: retry after reopen ok raw={val}/{maxRaw}");
                         else Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: reopen ok но чтение всё равно fail");
                     }
                 }
                 if (val < 0) return -1;
+                m.ConsecutiveFailures = 0;   // канал ответил — снова доверяем ему серию попыток
 
                 // Запоминаем реальную шкалу монитора и приводим значение к процентам.
                 // До этого фикса max нигде не сохранялся: BrightnessMax/ContrastMax вечно
@@ -730,17 +790,24 @@ public class DdcManager
                 if (scaleMax <= 0) scaleMax = 100;
                 uint raw = (uint)Math.Round(val * scaleMax / 100.0);
 
-                bool ok = Native.SetVCPFeature(m.Handle, vcp, raw);
-                int lastErr = ok ? 0 : Marshal.GetLastWin32Error();
-
-                // Transient I2C — один короткий retry.
-                if (!ok && IsTransientI2cError(lastErr))
+                int lastErr = 0;
+                bool ok = OnBus(m, () =>
                 {
-                    Thread.Sleep(50);
-                    ok = Native.SetVCPFeature(m.Handle, vcp, raw);
-                    if (!ok) lastErr = Marshal.GetLastWin32Error(); else lastErr = 0;
-                    Log?.Invoke($"SafeWrite [{m.ShortId}] vcp=0x{vcp:X} transient retry ok={ok}");
-                }
+                    bool w = Native.SetVCPFeature(m.Handle, vcp, raw);
+                    lastErr = w ? 0 : Marshal.GetLastWin32Error();
+
+                    // Transient I2C — один короткий retry, тоже под шлюзом:
+                    // отпускать шину между попыткой и повтором нельзя, иначе
+                    // между ними влезет другой монитор и добьёт обмен.
+                    if (!w && IsTransientI2cError(lastErr))
+                    {
+                        Thread.Sleep(50);
+                        w = Native.SetVCPFeature(m.Handle, vcp, raw);
+                        lastErr = w ? 0 : Marshal.GetLastWin32Error();
+                        Log?.Invoke($"SafeWrite [{m.ShortId}] vcp=0x{vcp:X} transient retry ok={w}");
+                    }
+                    return w;
+                });
 
                 long dur = sw.ElapsedMilliseconds;
                 string durTag = dur > 500 ? $" SLOW dur={dur}ms" : "";
@@ -749,6 +816,7 @@ public class DdcManager
                 m.LastErrorCode = lastErr;
                 if (!ok)
                 {
+                    m.ConsecutiveFailures++;
                     if (IsPossiblyStaleHandle(lastErr))
                     {
                         // Handle stale (INVALID_HANDLE или GEN_FAILURE / MCA_INTERNAL — часто после
@@ -759,12 +827,18 @@ public class DdcManager
                         Log?.Invoke($"SafeWrite [{m.ShortId}]: handle stale (err=0x{lastErr:X}) — reopening");
                         if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
                         {
-                            bool retryOk = Native.SetVCPFeature(m.Handle, vcp, raw);
-                            int retryErr = retryOk ? 0 : Marshal.GetLastWin32Error();
+                            int retryErr = 0;
+                            bool retryOk = OnBus(m, () =>
+                            {
+                                bool w = Native.SetVCPFeature(m.Handle, vcp, raw);
+                                retryErr = w ? 0 : Marshal.GetLastWin32Error();
+                                return w;
+                            });
                             Log?.Invoke($"SafeWrite [{m.ShortId}] retry after reopen ok={retryOk}{(retryOk ? "" : $" err=0x{retryErr:X}")}");
                             if (retryOk)
                             {
                                 if (vcp == VCP_BRIGHTNESS) m.Brightness = val; else m.Contrast = val;
+                                m.ConsecutiveFailures = 0;
                                 return true;
                             }
                             // Если и после reopen fail — не крутимся в цикле, возвращаем false
@@ -789,6 +863,7 @@ public class DdcManager
 
                 // ok=true — сохраняем val как последнее подтверждённое.
                 if (vcp == VCP_BRIGHTNESS) m.Brightness = val; else m.Contrast = val;
+                m.ConsecutiveFailures = 0;
                 m.WriteCounter++;
                 // Verify только если очередь pending пуста (юзер отпустил слайдер).
                 bool pendingEmpty;
@@ -796,9 +871,14 @@ public class DdcManager
                 if (m.WriteCounter >= 10 && pendingEmpty && vcp == VCP_BRIGHTNESS && m.Handle != IntPtr.Zero && !m.Disposed)
                 {
                     m.WriteCounter = 0;
+                    // Спим ДО захвата шлюза: пауза нужна монитору на применение значения,
+                    // а держать в это время шину значит блокировать соседние мониторы.
                     Thread.Sleep(m.VerifyDelayMs);
                     if (m.Handle == IntPtr.Zero || m.Disposed) return true;
-                    if (Native.GetVCPFeatureAndVCPFeatureReply(m.Handle, vcp, IntPtr.Zero, out uint cur, out uint mx))
+                    uint cur = 0, mx = 0;
+                    bool verified = OnBus(m, () =>
+                        Native.GetVCPFeatureAndVCPFeatureReply(m.Handle, vcp, IntPtr.Zero, out cur, out mx));
+                    if (verified)
                     {
                         int cm = mx == 0 ? scaleMax : (int)mx;
                         // Verify — ещё один источник актуального max, запоминаем его.
@@ -999,7 +1079,9 @@ public class DdcManager
                 max = (int)mx;
                 return (int)cur;
             }
-            Thread.Sleep(waits[Math.Min(i, waits.Length - 1)]);
+            // После последней попытки не спим: держать шлюз шины ещё секунду
+            // впустую значит заставлять исправный монитор ждать ни за чем.
+            if (i < attempts - 1) Thread.Sleep(waits[Math.Min(i, waits.Length - 1)]);
         }
         return -1;
     }

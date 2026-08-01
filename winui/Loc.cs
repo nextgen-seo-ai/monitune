@@ -116,6 +116,28 @@ public static class Loc
         return false;
     }
 
+    /// <summary>Записать в лог, что реально видит ресурсный слой.
+    /// Без этого расхождение «в настройках en-US, а интерфейс русский»
+    /// невозможно разобрать по диагностике с чужой машины.</summary>
+    public static void LogDiagnostics()
+    {
+        try
+        {
+            var ctx = Context;
+            App.LogStatic($"Loc: выбран {ActiveLanguage}, контекст {(ctx == null ? "НЕ создан" : "создан")}");
+            if (ctx != null)
+            {
+                ctx.QualifierValues.TryGetValue("Language", out var langQualifier);
+                App.LogStatic($"Loc: квалификатор Language = '{langQualifier}'");
+            }
+            var map = Manager.MainResourceMap;
+            var probe = map.TryGetValue("Resources/MenuOpen", ctx);
+            var probeNoCtx = map.TryGetValue("Resources/MenuOpen");
+            App.LogStatic($"Loc: MenuOpen с контекстом='{probe?.ValueAsString}', без контекста='{probeNoCtx?.ValueAsString}'");
+        }
+        catch (Exception ex) { App.LogStatic("Loc diag ex: " + ex.Message); }
+    }
+
     /// <summary>Строка по ключу. Если ключа нет — возвращает сам ключ, чтобы пропажа была заметна.</summary>
     public static string S(string key)
     {

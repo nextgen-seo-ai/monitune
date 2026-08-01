@@ -148,6 +148,7 @@ public partial class App : Application
 
         SettingsStore.Load();
         L("settings loaded; sync=" + SettingsStore.Current.SyncAllMonitors);
+        Loc.LogDiagnostics();
 
         // Если мы поднялись после auto-update (через scheduled task или вручную) —
         // почистить остаток scheduled task и marker. Идемпотентно.

@@ -79,8 +79,12 @@ Filename: "powershell.exe"; \
 ; PackageFamilyName — это хеш от Publisher, и при смене сертификата он меняется.
 ; Зашитый хеш от прежнего сертификата молча ломал этот чекбокс — установка
 ; проходила, а приложение не запускалось.
+;
+; Фигурных скобок в команде быть не должно: в Inno открывающая фигурная скобка
+; начинает константу, и PowerShell-блок вида «if (...) ... » с телом в скобках
+; роняет компиляцию скрипта. Поэтому обходимся одним выражением без if.
 Filename: "powershell.exe"; \
-    Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""$pfn = (Get-AppxPackage MonitorTune).PackageFamilyName; if ($pfn) { Start-Process ('shell:AppsFolder\' + $pfn + '!App') }"""; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Start-Process ('shell:AppsFolder\' + (Get-AppxPackage MonitorTune).PackageFamilyName + '!App')"""; \
     Description: "{cm:LaunchApp}"; \
     Flags: postinstall nowait skipifsilent
 

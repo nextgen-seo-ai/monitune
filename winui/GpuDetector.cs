@@ -39,7 +39,14 @@ public static class GpuDetector
     {
         if (string.IsNullOrEmpty(name)) return GpuVendor.Unknown;
         string s = name.ToLowerInvariant();
-        if (s.Contains("displaylink") || s.Contains("indirect display")) return GpuVendor.DisplayLink;
+        // Виртуальные и USB-дисплеи не имеют физической шины DDC/CI: команды им
+        // слать бесполезно, а попытки заканчиваются таймаутами и «?» в панели.
+        // Ловим не только DisplayLink, но и indirect display drivers — их выдают
+        // приложения вроде spacedesk, USB Mobile Monitor, Duet, Splashtop.
+        if (s.Contains("displaylink") || s.Contains("indirect display") || s.Contains("iddcx")
+            || s.Contains("virtual") || s.Contains("spacedesk") || s.Contains("mobile monitor")
+            || s.Contains("duet display") || s.Contains("splashtop") || s.Contains("idisplay"))
+            return GpuVendor.DisplayLink;
         if (s.Contains("intel")) return GpuVendor.Intel;
         if (s.Contains("nvidia") || s.Contains("geforce") || s.Contains("quadro") || s.Contains("tesla")) return GpuVendor.Nvidia;
         if (s.Contains("amd") || s.Contains("radeon") || s.Contains("ati ")) return GpuVendor.Amd;

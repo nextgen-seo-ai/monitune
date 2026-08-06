@@ -142,7 +142,7 @@
     <value>Управление недоступно. {0}</value>
   </data>
   <data name="ReasonDisplayLink" xml:space="preserve">
-    <value>DisplayLink адаптер — управление яркостью через DDC/CI не передаётся</value>
+    <value>Виртуальный или USB-дисплей — аппаратного канала DDC/CI у него нет</value>
   </data>
   <data name="ReasonInternalWmi" xml:space="preserve">
     <value>Встроенный дисплей: Windows не отдаёт управление яркостью через WMI. Обновите драйвер видеокарты и проверьте, что служба «Display Enhancement Service» не отключена.</value>
@@ -151,7 +151,7 @@
     <value>Монитор не отвечает по DDC/CI (проверьте, включено ли DDC/CI в OSD)</value>
   </data>
   <data name="BannerDisplayLink" xml:space="preserve">
-    <value>Монитор подключён через USB-адаптер (DisplayLink). Управление яркостью по DDC/CI недоступно.</value>
+    <value>Это виртуальный или USB-дисплей — например через DisplayLink, spacedesk или подобную программу. Аппаратной регулировки яркости у него нет.</value>
   </data>
   <data name="BannerNoDdc" xml:space="preserve">
     <value>Монитор не отвечает по DDC/CI. Проверьте что опция DDC/CI включена в экранном меню (OSD).</value>

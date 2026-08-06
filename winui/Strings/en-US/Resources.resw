@@ -142,7 +142,7 @@ verify delay: {2} ms</value>
     <value>Control unavailable. {0}</value>
   </data>
   <data name="ReasonDisplayLink" xml:space="preserve">
-    <value>DisplayLink adapter — DDC/CI brightness control is not passed through</value>
+    <value>Virtual or USB display — it has no hardware DDC/CI channel</value>
   </data>
   <data name="ReasonInternalWmi" xml:space="preserve">
     <value>Built-in display: Windows does not expose brightness control through WMI. Update the graphics driver and check that the Display Enhancement Service is not disabled.</value>
@@ -151,7 +151,7 @@ verify delay: {2} ms</value>
     <value>The monitor does not respond over DDC/CI (check whether DDC/CI is enabled in its OSD)</value>
   </data>
   <data name="BannerDisplayLink" xml:space="preserve">
-    <value>This monitor is connected through a USB adapter (DisplayLink). Brightness control over DDC/CI is not available.</value>
+    <value>This is a virtual or USB display — through DisplayLink, spacedesk or a similar app. It has no hardware brightness control.</value>
   </data>
   <data name="BannerNoDdc" xml:space="preserve">
     <value>The monitor does not respond over DDC/CI. Check that DDC/CI is enabled in its on-screen menu (OSD).</value>

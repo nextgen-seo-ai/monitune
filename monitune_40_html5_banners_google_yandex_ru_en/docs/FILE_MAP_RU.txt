@@ -1,0 +1,94 @@
+MoniTune — карта файлов
+
+
+Google Ads / RU
+------------------------------------------------
+01. 300x250 | Sync Slider | google_ru_300x250_sync-slider_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, vertical slider, synchronized UI sliders, CTA
+02. 336x280 | Light Before/After | google_ru_336x280_before-after-light_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, brightness reveal, CTA
+03. 728x90 | UI Micro Motion | google_ru_728x90_ui-micro-motion_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, toggle, slider micro-motion, CTA
+04. 970x90 | Mask Reveal | google_ru_970x90_mask-reveal_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, golden reveal sweep, CTA
+05. 970x250 | Kinetic Typography | google_ru_970x250_kinetic-type_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, kinetic headline, mini UI, CTA
+06. 160x600 | Depth / Parallax | google_ru_160x600_depth-parallax_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, depth layers, vertical slider, CTA
+07. 300x600 | Number Counter | google_ru_300x600_number-counter_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, 28→78 counter, CTA
+08. 320x50 | Night → Day | google_ru_320x50_night-to-day_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, moon/sun transition, UI panel, CTA
+09. 320x100 | Interactive Drag | google_ru_320x100_interactive-drag_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, draggable brightness slider, UI panel, CTA
+10. 250x250 | CTA Pulse | google_ru_250x250_cta-pulse_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, slider, CTA pulse/shimmer
+
+Google Ads / EN
+------------------------------------------------
+01. 300x250 | Sync Slider | google_en_300x250_sync-slider_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, vertical slider, synchronized UI sliders, CTA
+02. 336x280 | Light Before/After | google_en_336x280_before-after-light_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, brightness reveal, CTA
+03. 728x90 | UI Micro Motion | google_en_728x90_ui-micro-motion_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, toggle, slider micro-motion, CTA
+04. 970x90 | Mask Reveal | google_en_970x90_mask-reveal_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, golden reveal sweep, CTA
+05. 970x250 | Kinetic Typography | google_en_970x250_kinetic-type_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, kinetic headline, mini UI, CTA
+06. 160x600 | Depth / Parallax | google_en_160x600_depth-parallax_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, depth layers, vertical slider, CTA
+07. 300x600 | Number Counter | google_en_300x600_number-counter_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, 28→78 counter, CTA
+08. 320x50 | Night → Day | google_en_320x50_night-to-day_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, moon/sun transition, UI panel, CTA
+09. 320x100 | Interactive Drag | google_en_320x100_interactive-drag_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, draggable brightness slider, UI panel, CTA
+10. 250x250 | CTA Pulse | google_en_250x250_cta-pulse_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, slider, CTA pulse/shimmer
+
+Yandex Direct / RU
+------------------------------------------------
+01. 240x400 | Sync Slider | yandex_ru_240x400_sync-slider_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, vertical slider, synchronized UI sliders, CTA
+02. 300x250 | Light Before/After | yandex_ru_300x250_before-after-light_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, brightness reveal, CTA
+03. 300x300 | UI Micro Motion | yandex_ru_300x300_ui-micro-motion_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, toggle, slider micro-motion, CTA
+04. 300x600 | Mask Reveal | yandex_ru_300x600_mask-reveal_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, golden reveal sweep, CTA
+05. 336x280 | Kinetic Typography | yandex_ru_336x280_kinetic-type_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, kinetic headline, mini UI, CTA
+06. 728x90 | Depth / Parallax | yandex_ru_728x90_depth-parallax_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, depth layers, vertical slider, CTA
+07. 970x250 | Number Counter | yandex_ru_970x250_number-counter_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, 28→78 counter, CTA
+08. 320x50 | Night → Day | yandex_ru_320x50_night-to-day_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, moon/sun transition, UI panel, CTA
+09. 320x100 | Interactive Drag | yandex_ru_320x100_interactive-drag_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, draggable brightness slider, UI panel, CTA
+10. 160x600 | CTA Pulse | yandex_ru_160x600_cta-pulse_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, slider, CTA pulse/shimmer
+
+Yandex Direct / EN
+------------------------------------------------
+01. 240x400 | Sync Slider | yandex_en_240x400_sync-slider_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, vertical slider, synchronized UI sliders, CTA
+02. 300x250 | Light Before/After | yandex_en_300x250_before-after-light_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, brightness reveal, CTA
+03. 300x300 | UI Micro Motion | yandex_en_300x300_ui-micro-motion_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, toggle, slider micro-motion, CTA
+04. 300x600 | Mask Reveal | yandex_en_300x600_mask-reveal_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, golden reveal sweep, CTA
+05. 336x280 | Kinetic Typography | yandex_en_336x280_kinetic-type_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, kinetic headline, mini UI, CTA
+06. 728x90 | Depth / Parallax | yandex_en_728x90_depth-parallax_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, depth layers, vertical slider, CTA
+07. 970x250 | Number Counter | yandex_en_970x250_number-counter_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, 28→78 counter, CTA
+08. 320x50 | Night → Day | yandex_en_320x50_night-to-day_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, moon/sun transition, UI panel, CTA
+09. 320x100 | Interactive Drag | yandex_en_320x100_interactive-drag_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, draggable brightness slider, UI panel, CTA
+10. 160x600 | CTA Pulse | yandex_en_160x600_cta-pulse_person-logo-ui-slider-cta.zip
+    Элементы: person, logo, UI panel, slider, CTA pulse/shimmer

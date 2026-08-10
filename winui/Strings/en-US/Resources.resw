@@ -156,6 +156,9 @@ verify delay: {2} ms</value>
   <data name="BannerNoDdc" xml:space="preserve">
     <value>The monitor does not respond over DDC/CI. Check that DDC/CI is enabled in its on-screen menu (OSD).</value>
   </data>
+  <data name="BannerLostConnection" xml:space="preserve">
+    <value>The monitor stopped responding. Some models lose the connection once the screen has been turned off by the idle timeout, and it cannot be restored until you restart. To stop this from happening, turn on “Keep the computer and display awake” in settings.</value>
+  </data>
   <data name="BannerSystemControlled" xml:space="preserve">
     <value>Brightness is controlled by the system (HDR or Adaptive Brightness is likely on). Software control is unavailable.</value>
   </data>

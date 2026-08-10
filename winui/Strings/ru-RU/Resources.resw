@@ -156,6 +156,9 @@
   <data name="BannerNoDdc" xml:space="preserve">
     <value>Монитор не отвечает по DDC/CI. Проверьте что опция DDC/CI включена в экранном меню (OSD).</value>
   </data>
+  <data name="BannerLostConnection" xml:space="preserve">
+    <value>Монитор перестал отвечать. Часть моделей теряет связь после того, как экран погас по таймауту, и до перезагрузки её уже не восстановить. Чтобы это не повторялось, включите в настройках «Не давать компьютеру и экрану засыпать».</value>
+  </data>
   <data name="BannerSystemControlled" xml:space="preserve">
     <value>Яркость управляется системой (возможно HDR или Adaptive Brightness). Программное управление недоступно.</value>
   </data>

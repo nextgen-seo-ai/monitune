@@ -240,6 +240,10 @@ public sealed partial class MainWindow : Window
         _ => "?",
     };
 
+    /// <summary>Со скольких неудач подряд считаем связь потерянной, а не разовым сбоем.
+    /// Три — потому что столько же нужно, чтобы Ddc перестал долбить монитор серией повторов.</summary>
+    const int LostConnectionThreshold = 3;
+
     static Border? BuildStatusBanner(MonInfo m)
     {
         // Встроенные панели ноутбуков (eDP) физически не имеют ни канала DDC/CI, ни OSD —
@@ -255,6 +259,12 @@ public sealed partial class MainWindow : Window
             msg = Loc.S("BannerDisplayLink");
         else if (!m.DdcSupported)
             msg = Loc.S("BannerNoDdc");
+        // Канал был живым при запуске, а потом отвалился: DdcSupported остался true,
+        // и раньше ни одно условие не срабатывало — пользователь видел «?» без единого
+        // слова объяснения. Отдельный случай, потому что и причина, и лечение другие:
+        // так ведут себя мониторы, теряющие DDC/CI после того, как экран погас.
+        else if (m.ConsecutiveFailures >= LostConnectionThreshold)
+            msg = Loc.S("BannerLostConnection");
         else if (m.ReadOnlyBrightness)
             msg = Loc.S("BannerSystemControlled");
         else if (m.ProbablyFreeSync)

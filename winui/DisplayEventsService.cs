@@ -110,6 +110,10 @@ public sealed class DisplayEventsService : IDisposable
     /// <summary>Компьютер проснулся из сна/hibernate — хорошая точка чтобы проверить обновления
     /// (могло пройти много часов пока спали).</summary>
     public event Action? OnSystemResumed;
+    /// <summary>Экран зажёгся после DPMS-таймаута (сам компьютер при этом не спал).
+    /// Отдельно от OnSystemResumed: сон системы шлёт PBT_APMRESUMEAUTOMATIC, а простое
+    /// гашение экрана по таймауту — нет, и эта ветка раньше не поднимала прогрев меню.</summary>
+    public event Action? OnDisplayPowerOn;
 
     public DisplayEventsService(DdcManager ddc, DispatcherQueue ui, Action<string>? log = null)
     {
@@ -236,7 +240,10 @@ public sealed class DisplayEventsService : IDisposable
                         // При запуске приложения это событие приходит СРАЗУ (мониторы уже давно включены).
                         // Не суспендим впустую в первые 5 секунд после старта.
                         if (Environment.TickCount - _startTick > 5000)
+                        {
                             _ddc.SuspendDdc(3000, "DPMS wake");
+                            RaiseDisplayPowerOn("DPMS wake");
+                        }
                     }
                     else _log("Monitor DPMS OFF");
                 }
@@ -244,11 +251,33 @@ public sealed class DisplayEventsService : IDisposable
                 {
                     _log($"Console display state: {setting.Data}");
                     if (setting.Data == 1 && Environment.TickCount - _startTick > 5000)
+                    {
                         _ddc.SuspendDdc(2000, "display state on");
+                        RaiseDisplayPowerOn("display state on");
+                    }
                 }
                 break;
         }
     }
+
+    /// <summary>Поднять OnDisplayPowerOn с дебаунсом: пробуждение экрана обычно шлёт
+    /// и GUID_MONITOR_POWER_ON, и GUID_CONSOLE_DISPLAY_STATE подряд, а прогревать меню
+    /// дважды незачем.</summary>
+    void RaiseDisplayPowerOn(string reason)
+    {
+        int now = Environment.TickCount;
+        if (unchecked(now - _lastDisplayPowerOnTick) < DisplayPowerOnDebounceMs) return;
+        _lastDisplayPowerOnTick = now;
+        _log($"OnDisplayPowerOn: {reason}");
+        _ui.TryEnqueue(() =>
+        {
+            try { OnDisplayPowerOn?.Invoke(); }
+            catch (Exception ex) { _log("OnDisplayPowerOn handler ex: " + ex.Message); }
+        });
+    }
+
+    int _lastDisplayPowerOnTick = 0;
+    const int DisplayPowerOnDebounceMs = 3000;
 
     public void Dispose()
     {

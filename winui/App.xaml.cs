@@ -236,6 +236,20 @@ public partial class App : Application
                 catch (Exception ex) { L("Tray warmup after resume ex: " + ex); }
             });
         };
+        // Экран зажёгся после DPMS-таймаута. Компьютер при этом не спал, поэтому
+        // OnSystemResumed не приходит — и до сих пор эта ветка оставалась без прогрева
+        // меню. Пауза перед прогревом: сразу после включения экрана композиция ещё
+        // перестраивается, и presenter, созданный в этот момент, снова выйдет компактным.
+        _displayEvents.OnDisplayPowerOn += () =>
+        {
+            _displayPowerOnTimer?.Dispose();
+            _displayPowerOnTimer = new System.Threading.Timer(_ => _ui!.TryEnqueue(() =>
+            {
+                try { _trayWindow?.Tray?.WarmupContextMenu(); L("Tray menu warmup after display power on"); }
+                catch (Exception ex) { L("Tray warmup after display power on ex: " + ex); }
+            }), null, 2000, System.Threading.Timeout.Infinite);
+        };
+
         _displayEvents.Install();
 
         _ddc.Start();
@@ -433,6 +447,7 @@ public partial class App : Application
     System.Threading.Timer? _restartTimer;
     System.Threading.Timer? _configRestartTimer;
     System.Threading.Timer? _updateCheckTimer;
+    System.Threading.Timer? _displayPowerOnTimer;
     void OnDisplaysChanged(object? s, EventArgs e)
     {
         L("DisplaySettingsChanged — debounce restart");

@@ -61,6 +61,9 @@ public class MonInfo
     /// Нужен, чтобы неотвечающий монитор не занимал шину длинными сериями повторов,
     /// пока исправные ждут очереди.</summary>
     public int ConsecutiveFailures;
+    /// <summary>Environment.TickCount64 последнего переоткрытия handle. Ограничивает
+    /// частоту циклов destroy/create physical monitor — именно они подвешивают канал.</summary>
+    public long LastReopenTick;
 }
 
 public enum OutputTech
@@ -652,17 +655,30 @@ public class DdcManager
                     int err = Marshal.GetLastWin32Error();
                     m.LastErrorCode = err;
                     m.ConsecutiveFailures++;
-                    // Всегда пробуем переоткрыть handle если чтение упало — Samsung DP
-                    // часто отдаёт разные err codes (0, 87, 1F, ...) на битый DDC.
-                    // Один re-open + повторный длинный retry намного лучше молчаливого -1.
-                    Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: fail (err=0x{err:X}) — reopen+retry");
-                    try { Native.DestroyPhysicalMonitor(m.Handle); } catch { }
-                    m.Handle = IntPtr.Zero;
-                    if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
+                    // Переоткрываем handle ТОЛЬКО когда ошибка действительно про handle.
+                    // Раньше здесь стояло «всегда переоткрывать» — правка под капризный
+                    // Samsung DP. Она вышла боком: коды вида 0xC0262582 означают, что
+                    // монитор ответил мусором по совершенно исправному handle, и рвать
+                    // physical monitor в этом случае бессмысленно. Хуже того, каждый цикл
+                    // destroy/create заставляет драйвер переинициализировать I2C-канал —
+                    // на части мониторов такая лавина в итоге подвешивает канал намертво,
+                    // и оживает он только с перезагрузкой (выключение монитора не помогает,
+                    // потому что залипает сторона ПК, а не монитор).
+                    if (IsPossiblyStaleHandle(err) && AllowReopen(m))
                     {
-                        val = OnBus(m, () => ReadRetry(m.Handle, vcp, attempts, out maxRaw));
-                        if (val >= 0) Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: retry after reopen ok raw={val}/{maxRaw}");
-                        else Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: reopen ok но чтение всё равно fail");
+                        Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: fail (err=0x{err:X}) — handle stale, reopen+retry");
+                        try { Native.DestroyPhysicalMonitor(m.Handle); } catch { }
+                        m.Handle = IntPtr.Zero;
+                        if (TryReopenHandle(m) && m.Handle != IntPtr.Zero && !m.Disposed)
+                        {
+                            val = OnBus(m, () => ReadRetry(m.Handle, vcp, attempts, out maxRaw));
+                            if (val >= 0) Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: retry after reopen ok raw={val}/{maxRaw}");
+                            else Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: reopen ok но чтение всё равно fail");
+                        }
+                    }
+                    else
+                    {
+                        Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: fail (err=0x{err:X}) — handle не трогаем");
                     }
                 }
                 if (val < 0) return -1;
@@ -688,6 +704,26 @@ public class DdcManager
             }
         }
         catch (Exception ex) { Log?.Invoke($"SafeRead '{m.Name}' vcp=0x{vcp:X} ex: {ex.Message}"); return -1; }
+    }
+
+    /// <summary>Минимальный интервал между переоткрытиями handle одного монитора.
+    /// Ограничение существует не ради экономии: связка DestroyPhysicalMonitor +
+    /// GetPhysicalMonitorsFromHMONITOR каждый раз дёргает драйвер на переинициализацию
+    /// I2C-канала, и частое повторение подвешивает DDC/CI до перезагрузки.</summary>
+    const int ReopenCooldownMs = 30_000;
+
+    /// <summary>Разрешено ли сейчас переоткрывать handle этого монитора.
+    /// Вызывать ТОЛЬКО под m.OpLock.</summary>
+    bool AllowReopen(MonInfo m)
+    {
+        long now = Environment.TickCount64;
+        if (m.LastReopenTick != 0 && now - m.LastReopenTick < ReopenCooldownMs)
+        {
+            Log?.Invoke($"AllowReopen [{m.ShortId}]: пропуск — прошло {(now - m.LastReopenTick) / 1000}с из {ReopenCooldownMs / 1000}с");
+            return false;
+        }
+        m.LastReopenTick = now;
+        return true;
     }
 
     /// <summary>Попытаться переоткрыть physical handle для монитора.
@@ -817,7 +853,7 @@ public class DdcManager
                 if (!ok)
                 {
                     m.ConsecutiveFailures++;
-                    if (IsPossiblyStaleHandle(lastErr))
+                    if (IsPossiblyStaleHandle(lastErr) && AllowReopen(m))
                     {
                         // Handle stale (INVALID_HANDLE или GEN_FAILURE / MCA_INTERNAL — часто после
                         // hotplug монитора). Обнуляем + СРАЗУ пытаемся переоткрыть и повторить write,

@@ -149,6 +149,16 @@ public sealed partial class MainWindow : Window
         // Info-баннер если что-то не так с DDC-каналом этого монитора
         var banner = BuildStatusBanner(m);
         if (banner != null) sp.Children.Add(banner);
+        // Постоянной причины нет — значит канал считался живым. Он может отвалиться
+        // уже на ходу (так ведут себя мониторы, теряющие DDC/CI после того, как экран
+        // погас): тогда прилетит «?», и объяснение должно появиться вместе с ним.
+        else if (m.OutputTechnology != OutputTech.Internal)
+        {
+            var lost = MakeCautionBanner(Loc.S("BannerLostConnection"));
+            lost.Visibility = Visibility.Collapsed;
+            sp.Children.Add(lost);
+            lostBanners[idx] = lost;
+        }
 
         // Три состояния:
         // 1) eDP (встроенный дисплей ноутбука, WMI) — только Brightness, без Contrast
@@ -241,8 +251,24 @@ public sealed partial class MainWindow : Window
     };
 
     /// <summary>Со скольких неудач подряд считаем связь потерянной, а не разовым сбоем.
-    /// Три — потому что столько же нужно, чтобы Ddc перестал долбить монитор серией повторов.</summary>
-    const int LostConnectionThreshold = 3;
+    /// Два — это ровно то, что монитор набирает за один заход инициализации: не ответил
+    /// ни на яркость, ни на контраст. Порог 3 здесь недостижим (провал caps не считается),
+    /// и баннер молчал именно тогда, когда был нужен.</summary>
+    const int LostConnectionThreshold = 2;
+
+    /// <summary>Скрытые баннеры «связь потеряна» по индексу монитора. Карточка строится
+    /// один раз, а «?» прилетает из железа асинхронно и позже — поэтому баннер держим
+    /// готовым и показываем реактивно из <see cref="SetValue"/>.</summary>
+    readonly Dictionary<int, Border> lostBanners = new();
+
+    static Border MakeCautionBanner(string msg) => new Border
+    {
+        Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBackgroundBrush"],
+        BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
+        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+        Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 4, 0, 4),
+        Child = new TextBlock { Text = msg, FontSize = 11, TextWrapping = TextWrapping.Wrap, Opacity = 0.9 },
+    };
 
     static Border? BuildStatusBanner(MonInfo m)
     {
@@ -270,14 +296,7 @@ public sealed partial class MainWindow : Window
         else if (m.ProbablyFreeSync)
             msg = Loc.S("BannerAdaptiveSync");
         if (msg == null) return null;
-        return new Border
-        {
-            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBackgroundBrush"],
-            BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
-            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 4, 0, 4),
-            Child = new TextBlock { Text = msg, FontSize = 11, TextWrapping = TextWrapping.Wrap, Opacity = 0.9 },
-        };
+        return MakeCautionBanner(msg);
     }
 
     Grid BuildRow(int idx, byte vcp, string caption)
@@ -459,11 +478,25 @@ public sealed partial class MainWindow : Window
             vals[key].Text = "?";
             sl.IsEnabled = false;
             sl.Opacity = 0.5;
+            UpdateLostBanner(idx);
             return;
         }
         SetUiValue(idx, vcp, value, fromHardware: true);
         sl.IsEnabled = true;
         sl.Opacity = 1.0;
+        UpdateLostBanner(idx);
+    }
+
+    /// <summary>Держит баннер «связь потеряна» в согласии с тем, что видит юзер:
+    /// показан ровно тогда, когда хотя бы одно значение монитора — «?». Инвариант
+    /// простой: «?» без объяснения не бывает.</summary>
+    void UpdateLostBanner(int idx)
+    {
+        if (!lostBanners.TryGetValue(idx, out var b)) return;
+        bool anyUnknown =
+            (vals.TryGetValue(idx + ":" + DdcManager.VCP_BRIGHTNESS, out var vb) && vb.Text == "?") ||
+            (vals.TryGetValue(idx + ":" + DdcManager.VCP_CONTRAST, out var vc) && vc.Text == "?");
+        b.Visibility = anyUnknown ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>OnValue handler — маппит MonId в текущий idx, отбрасывает stale события.</summary>
@@ -542,6 +575,7 @@ public sealed partial class MainWindow : Window
             bars.Clear();
             vals.Clear();
             linkBtns.Clear();
+            lostBanners.Clear();     // Border'ы уничтожены вместе с карточками
             _draggingKeys.Clear();   // stale keys — Slider объекты уничтожены
             _lastRequested.Clear();  // индексы мониторов после Refresh другие
             CardsHost.Children.Clear();

@@ -399,7 +399,8 @@ h1.stats-title em {
       telemetry: only public information from the releases.
     </p>
     <p class="stats-note">
-      Refreshed the moment you open the page. Cached in the browser for 60 seconds.
+      The snapshot is refreshed with every release; on open the page also asks the API
+      for live numbers, when its rate limit allows.
       <a href="https://api.github.com/repos/nextgen-seo-ai/monitune/releases" target="_blank" rel="noopener">View the raw API →</a>
     </p>
   </section>
@@ -484,6 +485,28 @@ async function loadReleases() {
   return data;
 }
 
+// Snapshot written by the release workflow. Needed because the anonymous GitHub API
+// allows only 60 requests per hour per IP: once that ran out, the page used to show
+// an error instead of the numbers.
+async function loadSnapshot() {
+  const resp = await fetch('../../stats/data.json', { cache: 'no-cache' });
+  if (!resp.ok) throw new Error('snapshot HTTP ' + resp.status);
+  const snap = await resp.json();
+  if (!snap || !Array.isArray(snap.releases)) throw new Error('snapshot malformed');
+  return snap;
+}
+
+// Both sources are normalised to one shape so rendering does not care where data came from.
+function fromApi(data) {
+  return data.map(r => ({
+    tag: r.tag_name,
+    published: r.published_at,
+    setup: assetCount(r.assets, 'MonitorTune-Setup.exe'),
+    msix: assetMsixCount(r.assets),
+    manifest: assetCount(r.assets, 'latest.json'),
+  }));
+}
+
 function assetCount(assets, name) {
   if (!Array.isArray(assets)) return 0;
   const a = assets.find(x => x.name === name);
@@ -498,15 +521,12 @@ function assetMsixCount(assets) {
 
 function renderTable(releases) {
   const rows = releases.map(r => {
-    const setup = assetCount(r.assets, 'MonitorTune-Setup.exe');
-    const msix = assetMsixCount(r.assets);
-    const manifest = assetCount(r.assets, 'latest.json');
     return `<tr>
-      <td class="ver">${r.tag_name}</td>
-      <td class="date">${fmtDate(r.published_at)}</td>
-      <td class="num ${setup > 0 ? 'hi' : 'zero'}">${fmtNumber(setup)}</td>
-      <td class="num">${fmtNumber(msix)}</td>
-      <td class="num">${fmtNumber(manifest)}</td>
+      <td class="ver">${r.tag}</td>
+      <td class="date">${fmtDate(r.published)}</td>
+      <td class="num ${r.setup > 0 ? 'hi' : 'zero'}">${fmtNumber(r.setup)}</td>
+      <td class="num">${fmtNumber(r.msix)}</td>
+      <td class="num">${fmtNumber(r.manifest)}</td>
     </tr>`;
   }).join('');
 
@@ -524,9 +544,9 @@ function renderTable(releases) {
 }
 
 function renderDistribution(releases) {
-  // Сколько инсталляций пришло на каждую версию (setup.exe download_count)
+  // How many installs each version got (setup.exe download_count)
   const items = releases
-    .map(r => ({ ver: r.tag_name, count: assetCount(r.assets, 'MonitorTune-Setup.exe') }))
+    .map(r => ({ ver: r.tag, count: r.setup }))
     .filter(x => x.count > 0);
   if (!items.length) return '';
   const max = Math.max(...items.map(x => x.count));
@@ -540,49 +560,68 @@ function renderDistribution(releases) {
   }).join('');
 }
 
+function render(releases, stamp) {
+  if (!releases.length) {
+    document.getElementById('loading').textContent = 'No releases yet.';
+    return;
+  }
+
+  const totalInstalls = releases.reduce((s, r) => s + r.setup, 0);
+  const totalUpdates = releases.reduce((s, r) => s + r.msix, 0);
+  const totalChecks = releases.reduce((s, r) => s + r.manifest, 0);
+  const current = releases[0]; // latest (releases sorted by published desc)
+
+  document.getElementById('m-installs').textContent = fmtNumber(totalInstalls);
+  document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
+  document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
+  document.getElementById('m-current').textContent = current.tag;
+  document.getElementById('m-current-date').textContent = 'released ' + fmtDate(current.published);
+
+  document.getElementById('table-wrap').innerHTML = renderTable(releases);
+
+  const dist = renderDistribution(releases);
+  if (dist) {
+    document.getElementById('dist-head').style.display = 'flex';
+    document.getElementById('dist-wrap').innerHTML = '<div class="dist-list">' + dist + '</div>';
+  }
+
+  document.getElementById('last-fetched').textContent = stamp;
+
+  const liveEm = document.getElementById('live-em');
+  if (liveEm && current.tag) liveEm.textContent = current.tag;
+}
+
 async function main() {
+  let shown = false;
+
+  // 1. Snapshot shipped with the site: no rate limit, refreshed by every release.
+  //    Shown first so the page is never empty.
   try {
-    const releases = await loadReleases();
-    if (!releases.length) {
-      document.getElementById('loading').textContent = 'No releases yet.';
-      return;
+    const snap = await loadSnapshot();
+    const when = snap.generated_at ? fmtDate(snap.generated_at) : '';
+    render(snap.releases, when ? 'snapshot from ' + when : 'snapshot from the site');
+    shown = snap.releases.length > 0;
+  } catch (_) {}
+
+  // 2. Live numbers on top of the snapshot — when the API limit is not exhausted.
+  try {
+    const live = fromApi(await loadReleases());
+    if (live.length) {
+      render(live, 'updated ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+      shown = true;
     }
-
-    // Aggregate metrics
-    const totalInstalls = releases.reduce((s, r) => s + assetCount(r.assets, 'MonitorTune-Setup.exe'), 0);
-    const totalUpdates = releases.reduce((s, r) => s + assetMsixCount(r.assets), 0);
-    const totalChecks = releases.reduce((s, r) => s + assetCount(r.assets, 'latest.json'), 0);
-    const current = releases[0]; // latest (releases sorted by published desc)
-
-    document.getElementById('m-installs').textContent = fmtNumber(totalInstalls);
-    document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
-    document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
-    document.getElementById('m-current').textContent = current.tag_name;
-    document.getElementById('m-current-date').textContent = 'released ' + fmtDate(current.published_at);
-
-    // Table
-    document.getElementById('table-wrap').innerHTML = renderTable(releases);
-
-    // Distribution bar chart
-    const dist = renderDistribution(releases);
-    if (dist) {
-      document.getElementById('dist-head').style.display = 'flex';
-      document.getElementById('dist-wrap').innerHTML = '<div class="dist-list">' + dist + '</div>';
-    }
-
-    document.getElementById('last-fetched').textContent =
-      'updated ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-    // Проставить актуальную версию в заголовок
-    const liveEm = document.getElementById('live-em');
-    if (liveEm && current.tag_name) liveEm.textContent = current.tag_name;
-
   } catch (e) {
-    const box = document.getElementById('table-wrap');
-    if (e.status === 403) {
-      box.innerHTML = '<div class="err">GitHub API rate limit — try again in a minute. Without a token access is capped at 60 requests per hour per IP.</div>';
+    if (shown) {
+      // The snapshot is already on screen — a quiet note about the limit is enough.
+      const note = document.getElementById('last-fetched');
+      if (note) note.textContent += ' · live data unavailable';
     } else {
-      box.innerHTML = '<div class="err">Could not load: ' + (e.message || 'network error') + '</div>';
+      const box = document.getElementById('table-wrap');
+      if (e.status === 403) {
+        box.innerHTML = '<div class="err">GitHub API rate limit — try again in a minute. Without a token access is capped at 60 requests per hour per IP.</div>';
+      } else {
+        box.innerHTML = '<div class="err">Could not load: ' + (e.message || 'network error') + '</div>';
+      }
     }
   }
 }

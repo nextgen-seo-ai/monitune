@@ -385,3 +385,62 @@ jobs:
             ${{ steps.msix.outputs.MSIX_PATH }}
             ${{ steps.manifest.outputs.MANIFEST_PATH }}
             ${{ steps.sign.outputs.SIG_PATH }}
+
+      # Снимок статистики релизов на сайт. Страница /stats/ ходила прямо в GitHub API
+      # из браузера, а он даёт анонимно всего 60 запросов в час на IP — при исчерпании
+      # лимита вместо цифр показывалась ошибка. Здесь запрос идёт с токеном (лимит на
+      # три порядка выше), результат кладётся в docs/stats/data.json и обновляется с
+      # каждым выпуском.
+      - name: Update site stats snapshot
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raw = gh api "repos/${{ github.repository }}/releases?per_page=100" --paginate | ConvertFrom-Json
+
+          function AssetCount($assets, $name) {
+            $a = $assets | Where-Object { $_.name -eq $name } | Select-Object -First 1
+            if ($a) { return [int]$a.download_count } else { return 0 }
+          }
+          function MsixCount($assets) {
+            $a = $assets | Where-Object { $_.name -match '-x64\.msix$' } | Select-Object -First 1
+            if ($a) { return [int]$a.download_count } else { return 0 }
+          }
+
+          $releases = @()
+          foreach ($r in $raw) {
+            if ($r.draft) { continue }
+            $releases += [ordered]@{
+              tag       = $r.tag_name
+              published = $r.published_at
+              setup     = AssetCount $r.assets 'MonitorTune-Setup.exe'
+              msix      = MsixCount $r.assets
+              manifest  = AssetCount $r.assets 'latest.json'
+            }
+          }
+
+          $snapshot = [ordered]@{
+            generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            release_tag  = "${{ github.ref_name }}"
+            releases     = $releases
+          }
+
+          # Публикуем в main, а не в тег: Pages раздаёт docs/ именно оттуда.
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+
+          $out = "docs/stats/data.json"
+          $json = $snapshot | ConvertTo-Json -Depth 5
+          [IO.File]::WriteAllText($out, $json, (New-Object System.Text.UTF8Encoding $false))
+
+          git add $out
+          if (git diff --cached --quiet) {
+            Write-Output "статистика не изменилась — коммит не нужен"
+          } else {
+            git commit -m "stats: снимок загрузок на ${{ github.ref_name }} [skip ci]"
+            git push origin main
+            Write-Output "docs/stats/data.json обновлён ($($releases.Count) релизов)"
+          }

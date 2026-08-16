@@ -399,7 +399,8 @@ h1.stats-title em {
       никакой телеметрии — только публичная информация из релизов.
     </p>
     <p class="stats-note">
-      Обновляется в момент открытия страницы. Кэшируется на 60 секунд в браузере.
+      Снимок обновляется с выходом каждой версии; при открытии страница дополнительно
+      запрашивает живые цифры из API, если его лимит не выбран.
       <a href="https://api.github.com/repos/nextgen-seo-ai/monitune/releases" target="_blank" rel="noopener">Смотреть raw API →</a>
     </p>
   </section>
@@ -484,6 +485,28 @@ async function loadReleases() {
   return data;
 }
 
+// Снимок, который обновляет релизный workflow. Нужен потому, что анонимный GitHub API
+// отдаёт всего 60 запросов в час на IP: при исчерпании лимита страница раньше
+// показывала ошибку вместо цифр.
+async function loadSnapshot() {
+  const resp = await fetch('data.json', { cache: 'no-cache' });
+  if (!resp.ok) throw new Error('snapshot HTTP ' + resp.status);
+  const snap = await resp.json();
+  if (!snap || !Array.isArray(snap.releases)) throw new Error('snapshot malformed');
+  return snap;
+}
+
+// Оба источника приводим к одному виду, чтобы отрисовка не знала, откуда данные.
+function fromApi(data) {
+  return data.map(r => ({
+    tag: r.tag_name,
+    published: r.published_at,
+    setup: assetCount(r.assets, 'MonitorTune-Setup.exe'),
+    msix: assetMsixCount(r.assets),
+    manifest: assetCount(r.assets, 'latest.json'),
+  }));
+}
+
 function assetCount(assets, name) {
   if (!Array.isArray(assets)) return 0;
   const a = assets.find(x => x.name === name);
@@ -498,15 +521,12 @@ function assetMsixCount(assets) {
 
 function renderTable(releases) {
   const rows = releases.map(r => {
-    const setup = assetCount(r.assets, 'MonitorTune-Setup.exe');
-    const msix = assetMsixCount(r.assets);
-    const manifest = assetCount(r.assets, 'latest.json');
     return `<tr>
-      <td class="ver">${r.tag_name}</td>
-      <td class="date">${fmtDate(r.published_at)}</td>
-      <td class="num ${setup > 0 ? 'hi' : 'zero'}">${fmtNumber(setup)}</td>
-      <td class="num">${fmtNumber(msix)}</td>
-      <td class="num">${fmtNumber(manifest)}</td>
+      <td class="ver">${r.tag}</td>
+      <td class="date">${fmtDate(r.published)}</td>
+      <td class="num ${r.setup > 0 ? 'hi' : 'zero'}">${fmtNumber(r.setup)}</td>
+      <td class="num">${fmtNumber(r.msix)}</td>
+      <td class="num">${fmtNumber(r.manifest)}</td>
     </tr>`;
   }).join('');
 
@@ -526,7 +546,7 @@ function renderTable(releases) {
 function renderDistribution(releases) {
   // Сколько инсталляций пришло на каждую версию (setup.exe download_count)
   const items = releases
-    .map(r => ({ ver: r.tag_name, count: assetCount(r.assets, 'MonitorTune-Setup.exe') }))
+    .map(r => ({ ver: r.tag, count: r.setup }))
     .filter(x => x.count > 0);
   if (!items.length) return '';
   const max = Math.max(...items.map(x => x.count));
@@ -540,49 +560,68 @@ function renderDistribution(releases) {
   }).join('');
 }
 
+function render(releases, stamp) {
+  if (!releases.length) {
+    document.getElementById('loading').textContent = 'Релизов пока нет.';
+    return;
+  }
+
+  const totalInstalls = releases.reduce((s, r) => s + r.setup, 0);
+  const totalUpdates = releases.reduce((s, r) => s + r.msix, 0);
+  const totalChecks = releases.reduce((s, r) => s + r.manifest, 0);
+  const current = releases[0]; // latest (releases sorted by published desc)
+
+  document.getElementById('m-installs').textContent = fmtNumber(totalInstalls);
+  document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
+  document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
+  document.getElementById('m-current').textContent = current.tag;
+  document.getElementById('m-current-date').textContent = 'выпущена ' + fmtDate(current.published);
+
+  document.getElementById('table-wrap').innerHTML = renderTable(releases);
+
+  const dist = renderDistribution(releases);
+  if (dist) {
+    document.getElementById('dist-head').style.display = 'flex';
+    document.getElementById('dist-wrap').innerHTML = '<div class="dist-list">' + dist + '</div>';
+  }
+
+  document.getElementById('last-fetched').textContent = stamp;
+
+  const liveEm = document.getElementById('live-em');
+  if (liveEm && current.tag) liveEm.textContent = current.tag;
+}
+
 async function main() {
+  let shown = false;
+
+  // 1. Снимок с сайта: лежит рядом, лимитов не имеет, обновляется каждым релизом.
+  //    Показываем его сразу, чтобы страница никогда не была пустой.
   try {
-    const releases = await loadReleases();
-    if (!releases.length) {
-      document.getElementById('loading').textContent = 'Релизов пока нет.';
-      return;
+    const snap = await loadSnapshot();
+    const when = snap.generated_at ? fmtDate(snap.generated_at) : '';
+    render(snap.releases, when ? 'снимок от ' + when : 'снимок с сайта');
+    shown = snap.releases.length > 0;
+  } catch (_) {}
+
+  // 2. Живые данные поверх снимка — если лимит API не выбран.
+  try {
+    const live = fromApi(await loadReleases());
+    if (live.length) {
+      render(live, 'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+      shown = true;
     }
-
-    // Aggregate metrics
-    const totalInstalls = releases.reduce((s, r) => s + assetCount(r.assets, 'MonitorTune-Setup.exe'), 0);
-    const totalUpdates = releases.reduce((s, r) => s + assetMsixCount(r.assets), 0);
-    const totalChecks = releases.reduce((s, r) => s + assetCount(r.assets, 'latest.json'), 0);
-    const current = releases[0]; // latest (releases sorted by published desc)
-
-    document.getElementById('m-installs').textContent = fmtNumber(totalInstalls);
-    document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
-    document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
-    document.getElementById('m-current').textContent = current.tag_name;
-    document.getElementById('m-current-date').textContent = 'выпущена ' + fmtDate(current.published_at);
-
-    // Table
-    document.getElementById('table-wrap').innerHTML = renderTable(releases);
-
-    // Distribution bar chart
-    const dist = renderDistribution(releases);
-    if (dist) {
-      document.getElementById('dist-head').style.display = 'flex';
-      document.getElementById('dist-wrap').innerHTML = '<div class="dist-list">' + dist + '</div>';
-    }
-
-    document.getElementById('last-fetched').textContent =
-      'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-    // Проставить актуальную версию в заголовок
-    const liveEm = document.getElementById('live-em');
-    if (liveEm && current.tag_name) liveEm.textContent = current.tag_name;
-
   } catch (e) {
-    const box = document.getElementById('table-wrap');
-    if (e.status === 403) {
-      box.innerHTML = '<div class="err">GitHub API rate limit — попробуйте через минуту. Без токена доступ ограничен 60 запросами в час на IP.</div>';
+    if (shown) {
+      // Снимок уже на экране — про лимит достаточно тихой пометки.
+      const note = document.getElementById('last-fetched');
+      if (note) note.textContent += ' · живые данные недоступны';
     } else {
-      box.innerHTML = '<div class="err">Не удалось загрузить: ' + (e.message || 'ошибка сети') + '</div>';
+      const box = document.getElementById('table-wrap');
+      if (e.status === 403) {
+        box.innerHTML = '<div class="err">GitHub API rate limit — попробуйте через минуту. Без токена доступ ограничен 60 запросами в час на IP.</div>';
+      } else {
+        box.innerHTML = '<div class="err">Не удалось загрузить: ' + (e.message || 'ошибка сети') + '</div>';
+      }
     }
   }
 }

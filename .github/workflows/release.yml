@@ -427,17 +427,22 @@ jobs:
           }
 
           # Публикуем в main, а не в тег: Pages раздаёт docs/ именно оттуда.
+          # checkout@v4 клонирует на глубину 1 и оставляет detached HEAD на теге,
+          # поэтому main нужно подтянуть отдельно и создать локальную ветку от origin.
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout main
+          git fetch --depth=1 origin main
+          git checkout -B main origin/main
 
           $out = "docs/stats/data.json"
           $json = $snapshot | ConvertTo-Json -Depth 5
           [IO.File]::WriteAllText($out, $json, (New-Object System.Text.UTF8Encoding $false))
 
           git add $out
-          if (git diff --cached --quiet) {
+          # В pwsh `if (git diff --quiet)` не работает: cmdlet-условие смотрит на вывод,
+          # а не на код возврата, и пустой вывод всегда даёт false. Проверяем $LASTEXITCODE.
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
             Write-Output "статистика не изменилась — коммит не нужен"
           } else {
             git commit -m "stats: снимок загрузок на ${{ github.ref_name }} [skip ci]"

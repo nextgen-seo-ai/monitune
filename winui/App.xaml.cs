@@ -411,6 +411,12 @@ public partial class App : Application
     internal void ShowFlyoutAt(bool useTrayPosition)
     {
         L($"ShowFlyout useTrayPosition={useTrayPosition}");
+        // Пользователь сам открыл панель — значит пришёл крутить яркость. Если канал
+        // отвалился (например, монитор выключали кнопкой, о чём Windows приложению не
+        // сообщает), снимаем паузу перед переоткрытием, чтобы восстановление случилось
+        // здесь же, а не после ручного «Переопределить мониторы».
+        try { _ddc?.ResetReopenBackoff(); }
+        catch (Exception ex) { L("ResetReopenBackoff ex: " + ex.Message); }
         if (_window == null) return;
         Native.POINT pt;
         Native.GetCursorPos(out pt);

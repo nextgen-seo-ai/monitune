@@ -64,6 +64,9 @@ public class MonInfo
     /// <summary>Environment.TickCount64 последнего переоткрытия handle. Ограничивает
     /// частоту циклов destroy/create physical monitor — именно они подвешивают канал.</summary>
     public long LastReopenTick;
+    /// <summary>Сколько раз подряд переоткрытие не помогло. Удваивает паузу перед
+    /// следующей попыткой, чтобы мёртвый канал не дёргался бесконечно.</summary>
+    public int ReopenBackoffStep;
 }
 
 public enum OutputTech
@@ -664,7 +667,14 @@ public class DdcManager
                     // на части мониторов такая лавина в итоге подвешивает канал намертво,
                     // и оживает он только с перезагрузкой (выключение монитора не помогает,
                     // потому что залипает сторона ПК, а не монитор).
-                    if (IsPossiblyStaleHandle(err) && AllowReopen(m))
+                    // Переоткрываем при любой нетерминальной ошибке, но не чаще, чем
+                    // разрешит AllowReopen. Узкий список кодов тут не работает: когда
+                    // монитор выключают кнопкой, Windows не шлёт приложению ни
+                    // WM_DISPLAYCHANGE, ни DPMS, а канал возвращает обычный отказ чтения —
+                    // и монитор оставался мёртвым до ручного «Переопределить мониторы».
+                    // От прежней лавины destroy/create это отличается тем, что попытка
+                    // одна на интервал, который ещё и удваивается при неудачах.
+                    if (!IsTerminalDdcError(err) && AllowReopen(m))
                     {
                         Log?.Invoke($"SafeRead [{m.ShortId}] vcp=0x{vcp:X}: fail (err=0x{err:X}) — handle stale, reopen+retry");
                         try { Native.DestroyPhysicalMonitor(m.Handle); } catch { }
@@ -683,6 +693,7 @@ public class DdcManager
                 }
                 if (val < 0) return -1;
                 m.ConsecutiveFailures = 0;   // канал ответил — снова доверяем ему серию попыток
+                m.ReopenBackoffStep = 0;     // и снова разрешаем быстрое переоткрытие
 
                 // Запоминаем реальную шкалу монитора и приводим значение к процентам.
                 // До этого фикса max нигде не сохранялся: BrightnessMax/ContrastMax вечно
@@ -706,24 +717,45 @@ public class DdcManager
         catch (Exception ex) { Log?.Invoke($"SafeRead '{m.Name}' vcp=0x{vcp:X} ex: {ex.Message}"); return -1; }
     }
 
-    /// <summary>Минимальный интервал между переоткрытиями handle одного монитора.
+    /// <summary>Базовый интервал между переоткрытиями handle одного монитора.
     /// Ограничение существует не ради экономии: связка DestroyPhysicalMonitor +
     /// GetPhysicalMonitorsFromHMONITOR каждый раз дёргает драйвер на переинициализацию
     /// I2C-канала, и частое повторение подвешивает DDC/CI до перезагрузки.</summary>
     const int ReopenCooldownMs = 30_000;
+    /// <summary>Потолок интервала. Канал, который не оживает, не должен дёргаться вовсе:
+    /// после нескольких неудач подряд интервал растёт вдвое до этого значения.</summary>
+    const int ReopenCooldownMaxMs = 15 * 60_000;
 
     /// <summary>Разрешено ли сейчас переоткрывать handle этого монитора.
     /// Вызывать ТОЛЬКО под m.OpLock.</summary>
     bool AllowReopen(MonInfo m)
     {
         long now = Environment.TickCount64;
-        if (m.LastReopenTick != 0 && now - m.LastReopenTick < ReopenCooldownMs)
+        int wait = ReopenCooldownMs;
+        for (int i = 0; i < m.ReopenBackoffStep && wait < ReopenCooldownMaxMs; i++) wait *= 2;
+        if (wait > ReopenCooldownMaxMs) wait = ReopenCooldownMaxMs;
+
+        if (m.LastReopenTick != 0 && now - m.LastReopenTick < wait)
         {
-            Log?.Invoke($"AllowReopen [{m.ShortId}]: пропуск — прошло {(now - m.LastReopenTick) / 1000}с из {ReopenCooldownMs / 1000}с");
+            Log?.Invoke($"AllowReopen [{m.ShortId}]: пропуск — прошло {(now - m.LastReopenTick) / 1000}с из {wait / 1000}с");
             return false;
         }
         m.LastReopenTick = now;
+        m.ReopenBackoffStep++;
         return true;
+    }
+
+    /// <summary>Сбросить паузу перед переоткрытием для всех мониторов. Вызывается когда
+    /// пользователь сам пришёл к приложению (открыл панель, нажал «Переопределить»):
+    /// в этот момент уместно попытаться восстановить канал немедленно, не дожидаясь
+    /// истечения backoff. Фоновой долбёжки это не создаёт — только по действию человека.</summary>
+    public void ResetReopenBackoff()
+    {
+        foreach (var m in _monitorsSnapshot)
+        {
+            m.ReopenBackoffStep = 0;
+            m.LastReopenTick = 0;
+        }
     }
 
     /// <summary>Попытаться переоткрыть physical handle для монитора.
@@ -875,6 +907,7 @@ public class DdcManager
                             {
                                 if (vcp == VCP_BRIGHTNESS) m.Brightness = val; else m.Contrast = val;
                                 m.ConsecutiveFailures = 0;
+                                m.ReopenBackoffStep = 0;
                                 return true;
                             }
                             // Если и после reopen fail — не крутимся в цикле, возвращаем false
@@ -900,6 +933,7 @@ public class DdcManager
                 // ok=true — сохраняем val как последнее подтверждённое.
                 if (vcp == VCP_BRIGHTNESS) m.Brightness = val; else m.Contrast = val;
                 m.ConsecutiveFailures = 0;
+                m.ReopenBackoffStep = 0;
                 m.WriteCounter++;
                 // Verify только если очередь pending пуста (юзер отпустил слайдер).
                 bool pendingEmpty;

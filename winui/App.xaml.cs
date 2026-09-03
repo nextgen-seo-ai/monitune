@@ -214,11 +214,6 @@ public partial class App : Application
             {
                 try { _window?.RefreshMonitors(); L("RefreshMonitors after WM_DISPLAYCHANGE"); }
                 catch (Exception ex) { L("RefreshMonitors ex: " + ex); }
-                // BUG10 fix: context-menu presenter пересоздаётся после display topology change
-                // (DPMS off/on, monitor connect/disconnect) → первый последующий right-click
-                // снова обрезан. Re-warmup за 2 сек после Refresh — presenter уже в кэше.
-                try { _trayWindow?.Tray?.WarmupContextMenu(); L("Tray menu warmup after display change"); }
-                catch (Exception ex) { L("Tray warmup ex: " + ex); }
             }), null, 1500, System.Threading.Timeout.Infinite);
         };
         _displayEvents.OnSystemResumed += () =>
@@ -229,27 +224,7 @@ public partial class App : Application
                 try { UpdateService.CheckInBackground(); L("update check after resume"); }
                 catch (Exception ex) { L("update check after resume ex: " + ex.Message); }
             }
-            // BUG10 fix: аналогично для sleep→wake — прогреваем меню.
-            _ui?.TryEnqueue(() =>
-            {
-                try { _trayWindow?.Tray?.WarmupContextMenu(); L("Tray menu warmup after resume"); }
-                catch (Exception ex) { L("Tray warmup after resume ex: " + ex); }
-            });
         };
-        // Экран зажёгся после DPMS-таймаута. Компьютер при этом не спал, поэтому
-        // OnSystemResumed не приходит — и до сих пор эта ветка оставалась без прогрева
-        // меню. Пауза перед прогревом: сразу после включения экрана композиция ещё
-        // перестраивается, и presenter, созданный в этот момент, снова выйдет компактным.
-        _displayEvents.OnDisplayPowerOn += () =>
-        {
-            _displayPowerOnTimer?.Dispose();
-            _displayPowerOnTimer = new System.Threading.Timer(_ => _ui!.TryEnqueue(() =>
-            {
-                try { _trayWindow?.Tray?.WarmupContextMenu(); L("Tray menu warmup after display power on"); }
-                catch (Exception ex) { L("Tray warmup after display power on ex: " + ex); }
-            }), null, 2000, System.Threading.Timeout.Infinite);
-        };
-
         _displayEvents.Install();
 
         _ddc.Start();
@@ -453,7 +428,6 @@ public partial class App : Application
     System.Threading.Timer? _restartTimer;
     System.Threading.Timer? _configRestartTimer;
     System.Threading.Timer? _updateCheckTimer;
-    System.Threading.Timer? _displayPowerOnTimer;
     void OnDisplaysChanged(object? s, EventArgs e)
     {
         L("DisplaySettingsChanged — debounce restart");

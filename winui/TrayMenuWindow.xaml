@@ -23,7 +23,9 @@
                 <Setter Property="HorizontalAlignment" Value="Stretch"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 <Setter Property="FontSize" Value="14"/>
-                <Setter Property="UseSystemFocusVisuals" Value="True"/>
+                <!-- Меню открывают мышью, а фокус при показе встаёт на первый пункт и
+                     рисует вокруг него рамку — она читается как артефакт. -->
+                <Setter Property="UseSystemFocusVisuals" Value="False"/>
             </Style>
         </Grid.Resources>
 

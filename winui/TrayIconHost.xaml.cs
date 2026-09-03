@@ -60,12 +60,6 @@ public sealed partial class TrayIconHost : UserControl
         HookRightClickAsLeft(AboutMenuItem, AboutClick);
         HookRightClickAsLeft(ExitMenuItem, ExitClick);
 
-        // Первый warmup — при инициализации control (Loaded event).
-        Loaded += (_, _) =>
-        {
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, WarmupContextMenu);
-        };
-
         // При каждом open меню синхронизируем галочку с реальным StartupTaskState —
         // юзер мог включить/выключить автозапуск через Параметры Windows между показами.
         if (Tray.ContextFlyout is MenuFlyout mfOpening)
@@ -118,27 +112,6 @@ public sealed partial class TrayIconHost : UserControl
     public void DisposeAll()
     {
         try { Tray?.Dispose(); } catch { }
-    }
-
-    /// <summary>Прогреть context-menu presenter: SecondWindow popup инвалидируется
-    /// после DPMS off/on или display topology change. Первый последующий right-click
-    /// заново создаёт presenter → снова компактный размер. Вызываем этот метод из
-    /// display events чтобы юзер не видел обрезанное меню при возврате мониторов.</summary>
-    public void WarmupContextMenu()
-    {
-        try
-        {
-            Tray.ShowContextMenu(new System.Drawing.Point(-100000, -100000));
-            var timer = DispatcherQueue.CreateTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(50);
-            timer.IsRepeating = false;
-            timer.Tick += (_, _) =>
-            {
-                try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
-            };
-            timer.Start();
-        }
-        catch (Exception ex) { App.LogStatic("WarmupContextMenu ex: " + ex.Message); }
     }
 
     static void CopyFileToZip(System.IO.Compression.ZipArchive zip, string sourcePath, string entryName)
@@ -583,6 +556,30 @@ public sealed partial class TrayIconHost : UserControl
         }
         catch { return false; }
     }
+
+    // Нативное меню (ContextMenuMode=PopupMenu) выполняет привязанную Command и
+    // полностью игнорирует Click — проверено: с Click пункты открывались, но ничего
+    // не делали. Обработчики те же, просто вызываются через команду.
+    public ICommand OpenCmd       => _openCmd       ??= new Relay(() => OpenClick(this, new RoutedEventArgs()));
+    public ICommand RefreshCmd    => _refreshCmd    ??= new Relay(() => RefreshClick(this, new RoutedEventArgs()));
+    public ICommand UpdateCmd     => _updateCmd     ??= new Relay(() => UpdateClick(this, new RoutedEventArgs()));
+    public ICommand AutoStartCmd  => _autoStartCmd  ??= new Relay(() => AutoStartClick(this, new RoutedEventArgs()));
+    public ICommand DiagnosticCmd => _diagnosticCmd ??= new Relay(() => DiagnosticClick(this, new RoutedEventArgs()));
+    public ICommand AboutCmd      => _aboutCmd      ??= new Relay(() => AboutClick(this, new RoutedEventArgs()));
+    public ICommand ExitCmd       => _exitCmd       ??= new Relay(() => ExitClick(this, new RoutedEventArgs()));
+
+    /// <summary>Выполняется на правый клик по иконке, перед показом меню. В режиме
+    /// PopupMenu событие MenuFlyout.Opening не поднимается, а галочку автозапуска надо
+    /// сверить с реальным StartupTaskState: пользователь мог переключить его в
+    /// Параметрах Windows между показами.</summary>
+    public ICommand SyncMenuStateCmd => _syncCmd ??= new Relay(() =>
+    {
+        try { AutoStartItem.IsChecked = IsAutostart(); }
+        catch (Exception ex) { App.LogStatic("SyncMenuState ex: " + ex.Message); }
+    });
+
+    ICommand? _syncCmd;
+    ICommand? _openCmd, _refreshCmd, _updateCmd, _autoStartCmd, _diagnosticCmd, _aboutCmd, _exitCmd;
 
     sealed class Relay : ICommand
     {

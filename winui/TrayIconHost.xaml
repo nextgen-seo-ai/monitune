@@ -8,10 +8,16 @@
     <!-- Подписи пунктов проставляются в конструкторе из Strings\<язык>\Resources.resw,
          поэтому в разметке их нет: так пропавший ключ сразу виден, а не маскируется
          русским текстом из XAML. -->
+    <!-- ContextMenuMode=PopupMenu, а не SecondWindow: в режиме SecondWindow меню
+         рисуется как WinUI-flyout в отдельном окне, и его presenter протухает — первый
+         показ после нескольких часов простоя выходил компактным, с обрезанными
+         подписями. В режиме PopupMenu библиотека превращает этот же MenuFlyout в
+         нативное меню Windows, где размер считает система: обрезаться ему нечем. -->
     <tb:TaskbarIcon
         x:Name="Tray"
         NoLeftClickDelay="True"
-        ContextMenuMode="SecondWindow"
+        ContextMenuMode="PopupMenu"
+        RightClickCommand="{x:Bind SyncMenuStateCmd}"
         LeftClickCommand="{x:Bind LeftClick}">
         <tb:TaskbarIcon.IconSource>
             <BitmapImage UriSource="ms-appx:///Assets/AppIcon.ico"/>
@@ -34,26 +40,26 @@
         </tb:TaskbarIcon.TrayToolTip>
         <tb:TaskbarIcon.ContextFlyout>
             <MenuFlyout x:Name="TrayMenu">
-                <MenuFlyoutItem x:Name="OpenMenuItem" Click="OpenClick">
+                <MenuFlyoutItem x:Name="OpenMenuItem" Command="{x:Bind OpenCmd}">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="OpenLocal"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
-                <MenuFlyoutItem x:Name="RefreshMenuItem" Click="RefreshClick">
+                <MenuFlyoutItem x:Name="RefreshMenuItem" Command="{x:Bind RefreshCmd}">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Refresh"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutItem x:Name="UpdateMenuItem"
-                                Click="UpdateClick">
+                                Command="{x:Bind UpdateCmd}">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Download"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
-                <ToggleMenuFlyoutItem x:Name="AutoStartItem" Click="AutoStartClick"/>
-                <MenuFlyoutItem x:Name="DiagnosticMenuItem" Click="DiagnosticClick">
+                <ToggleMenuFlyoutItem x:Name="AutoStartItem" Command="{x:Bind AutoStartCmd}"/>
+                <MenuFlyoutItem x:Name="DiagnosticMenuItem" Command="{x:Bind DiagnosticCmd}">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Save"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
-                <MenuFlyoutItem x:Name="AboutMenuItem" Click="AboutClick">
+                <MenuFlyoutItem x:Name="AboutMenuItem" Command="{x:Bind AboutCmd}">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Help"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
                 <MenuFlyoutSeparator/>
-                <MenuFlyoutItem x:Name="ExitMenuItem" Click="ExitClick">
+                <MenuFlyoutItem x:Name="ExitMenuItem" Command="{x:Bind ExitCmd}">
                     <MenuFlyoutItem.Icon><SymbolIcon Symbol="Cancel"/></MenuFlyoutItem.Icon>
                 </MenuFlyoutItem>
             </MenuFlyout>

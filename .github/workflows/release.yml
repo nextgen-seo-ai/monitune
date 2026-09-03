@@ -391,7 +391,7 @@ jobs:
       # лимита вместо цифр показывалась ошибка. Здесь запрос идёт с токеном (лимит на
       # три порядка выше), результат кладётся в docs/stats/data.json и обновляется с
       # каждым выпуском.
-      - name: Update site stats snapshot
+      - name: Update site version and stats snapshot
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -438,14 +438,27 @@ jobs:
           $json = $snapshot | ConvertTo-Json -Depth 5
           [IO.File]::WriteAllText($out, $json, (New-Object System.Text.UTF8Encoding $false))
 
-          git add $out
+          # Версия на сайте: до этого правилась руками и успела отстать на десяток
+          # выпусков. Номер в разметке — не украшение: softwareVersion читают поисковики,
+          # а build-подпись видит посетитель, когда GitHub API недоступен и живое
+          # значение подставить не из чего.
+          $v4 = "${{ steps.version.outputs.version }}"
+          $v3 = ($v4 -split '\.')[0..2] -join '.'
+          foreach ($page in @("docs/index.html", "docs/en/index.html")) {
+            $html = [IO.File]::ReadAllText($page, [Text.Encoding]::UTF8)
+            $html = [regex]::Replace($html, '"softwareVersion":\s*"[\d.]+"', '"softwareVersion": "' + $v3 + '"')
+            $html = [regex]::Replace($html, '(id="build-tag">build )[\d.]+', '${1}' + $v4)
+            [IO.File]::WriteAllText($page, $html, (New-Object System.Text.UTF8Encoding $false))
+          }
+
+          git add $out docs/index.html docs/en/index.html
           # В pwsh `if (git diff --quiet)` не работает: cmdlet-условие смотрит на вывод,
           # а не на код возврата, и пустой вывод всегда даёт false. Проверяем $LASTEXITCODE.
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
             Write-Output "статистика не изменилась — коммит не нужен"
           } else {
-            git commit -m "stats: снимок загрузок на ${{ github.ref_name }} [skip ci]"
+            git commit -m "site: версия ${{ github.ref_name }} и снимок загрузок [skip ci]"
             git push origin main
-            Write-Output "docs/stats/data.json обновлён ($($releases.Count) релизов)"
+            Write-Output "сайт обновлён: версия $v4, релизов в снимке $($releases.Count)"
           }

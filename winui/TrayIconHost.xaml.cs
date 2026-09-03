@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.Windows.Input;
 
 namespace MonitorTune;
@@ -23,7 +24,6 @@ public sealed partial class TrayIconHost : UserControl
         InitializeComponent();
         LeftClick = new Relay(() => OnOpen?.Invoke());
         ApplyStrings();
-        AutoStartItem.IsChecked = IsAutostart();
         // Фиксированный GUID для tray icon — Windows tracks позицию иконки в трее
         // через NIF_GUID (по Guid), а не по пути exe. Без этого при каждом MSIX-update
         // путь exe меняется (WindowsApps\MonitorTune_X.X.X.X_...) → Windows считает
@@ -31,86 +31,64 @@ public sealed partial class TrayIconHost : UserControl
         // вручную перетаскивать после каждого обновления. С GUID — position preserved.
         Tray.Id = new Guid("CE7F9D62-89B4-4A4E-9D3A-4B7C5A2F1E6E");
         Tray.ForceCreate();
-        // Pre-warm меню: MenuFlyoutPresenter создаётся только при первом ShowAt.
-        // ContextMenuMode=SecondWindow: H.NotifyIcon сам вызывает ShowAt через свой popup host,
-        // но первый вызов не имеет полного layout pass → меню обрезано в компактный размер.
-        // Fix: сами делаем один ShowAt на off-screen позицию + сразу Hide. Presenter создастся,
-        // MeasureOverride отработает, размер закэшируется. Реальный правый клик уже правильный.
-        // ContextMenuMode=SecondWindow: H.NotifyIcon рендерит меню в отдельном popup window
-        // со своим resource tree. Style на MenuFlyoutPresenter НЕ применяется первый раз —
-        // поэтому явно ставим MinWidth на каждый item через code (это гарантирует что
-        // presenter не может быть уже суммы items и текст не обрезается).
-        const double ItemMinWidth = 320;
-        OpenMenuItem.MinWidth = ItemMinWidth;
-        RefreshMenuItem.MinWidth = ItemMinWidth;
-        UpdateMenuItem.MinWidth = ItemMinWidth;
-        AutoStartItem.MinWidth = ItemMinWidth;
-        DiagnosticMenuItem.MinWidth = ItemMinWidth;
-        AboutMenuItem.MinWidth = ItemMinWidth;
-        ExitMenuItem.MinWidth = ItemMinWidth;
+    }
 
-        // WinUI 3 MenuFlyoutItem обрабатывает только левый клик. Юзеры трея часто
-        // держат курсор на правой кнопке (правый клик открыл меню — пальцу удобно
-        // тем же кликом выбрать пункт). Дублируем правый клик через RightTapped.
-        HookRightClickAsLeft(OpenMenuItem, OpenClick);
-        HookRightClickAsLeft(RefreshMenuItem, RefreshClick);
-        HookRightClickAsLeft(UpdateMenuItem, UpdateClick);
-        HookRightClickAsLeftToggle(AutoStartItem, AutoStartClick);
-        HookRightClickAsLeft(DiagnosticMenuItem, DiagnosticClick);
-        HookRightClickAsLeft(AboutMenuItem, AboutClick);
-        HookRightClickAsLeft(ExitMenuItem, ExitClick);
+    // Подписи пунктов живут здесь, а не в элементах разметки: меню — собственное окно,
+    // которое пересобирается перед каждым показом. Часть подписей меняется на ходу
+    // («Обновить до X.Y.Z», «Собираю диагностику…»).
+    string _openText = "", _refreshText = "", _updateText = "";
+    string _autoStartText = "", _diagnosticText = "", _aboutText = "", _exitText = "";
 
-        // При каждом open меню синхронизируем галочку с реальным StartupTaskState —
-        // юзер мог включить/выключить автозапуск через Параметры Windows между показами.
-        if (Tray.ContextFlyout is MenuFlyout mfOpening)
+    TrayMenuWindow? _menuWindow;
+
+    /// <summary>Показать меню трея. Вызывается правым кликом по иконке.</summary>
+    public void ShowTrayMenu()
+    {
+        try
         {
-            mfOpening.Opening += (_, _) =>
+            _menuWindow ??= new TrayMenuWindow();
+            var items = new List<TrayMenuWindow.Item>
             {
-                try { AutoStartItem.IsChecked = IsAutostart(); } catch { }
+                new() { Text = _openText,       Icon = Symbol.OpenLocal, Invoke = () => OpenClick(this, new RoutedEventArgs()) },
+                new() { Text = _refreshText,    Icon = Symbol.Refresh,   Invoke = () => RefreshClick(this, new RoutedEventArgs()) },
+                new() { Text = _updateText,     Icon = Symbol.Download,  Invoke = () => UpdateClick(this, new RoutedEventArgs()) },
+                new() { IsSeparator = true },
+                // Галочку сверяем с реальным StartupTaskState при каждом показе: юзер мог
+                // переключить автозапуск в Параметрах Windows между открытиями меню.
+                new() { Text = _autoStartText,  IsChecked = IsAutostart(), Invoke = () => AutoStartClick(this, new RoutedEventArgs()) },
+                new() { Text = _diagnosticText, Icon = Symbol.Save,      Invoke = () => DiagnosticClick(this, new RoutedEventArgs()) },
+                new() { Text = _aboutText,      Icon = Symbol.Help,      Invoke = () => AboutClick(this, new RoutedEventArgs()) },
+                new() { IsSeparator = true },
+                new() { Text = _exitText,       Icon = Symbol.Cancel,    Invoke = () => ExitClick(this, new RoutedEventArgs()) },
             };
+            _menuWindow.SetItems(items);
+            Native.GetCursorPos(out var pt);
+            _menuWindow.ShowAt(pt.X, pt.Y);
         }
+        catch (Exception ex) { App.LogStatic("ShowTrayMenu ex: " + ex); }
     }
 
     /// <summary>Подписи иконки и пунктов меню — из ресурсов, разметка их не содержит.</summary>
     void ApplyStrings()
     {
-        Tray.ToolTipText       = Loc.S("TrayTooltip");
-        TrayToolTipText.Text   = Loc.S("MenuHeader");
-        OpenMenuItem.Text      = Loc.S("MenuOpen");
-        RefreshMenuItem.Text   = Loc.S("MenuRefresh");
-        UpdateMenuItem.Text    = Loc.S("MenuCheckUpdates");
-        AutoStartItem.Text     = Loc.S("MenuAutoStart");
-        DiagnosticMenuItem.Text = Loc.S("MenuDiagnostic");
-        AboutMenuItem.Text     = Loc.S("MenuAbout");
-        ExitMenuItem.Text      = Loc.S("MenuExit");
-    }
-
-    void HookRightClickAsLeft(MenuFlyoutItem item, RoutedEventHandler click)
-    {
-        item.RightTapped += (s, e) =>
-        {
-            e.Handled = true;
-            try { click(item, new RoutedEventArgs()); }
-            catch (Exception ex) { App.LogStatic("RightTapped click ex: " + ex.Message); }
-            try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
-        };
-    }
-
-    void HookRightClickAsLeftToggle(ToggleMenuFlyoutItem item, RoutedEventHandler click)
-    {
-        item.RightTapped += (s, e) =>
-        {
-            e.Handled = true;
-            item.IsChecked = !item.IsChecked;   // ToggleMenuFlyoutItem обычно сам toggle'ится по Click, вручную повторяем
-            try { click(item, new RoutedEventArgs()); }
-            catch (Exception ex) { App.LogStatic("RightTapped toggle ex: " + ex.Message); }
-            try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
-        };
+        Tray.ToolTipText     = Loc.S("TrayTooltip");
+        TrayToolTipText.Text = Loc.S("MenuHeader");
+        _openText       = Loc.S("MenuOpen");
+        _refreshText    = Loc.S("MenuRefresh");
+        _updateText     = Loc.S("MenuCheckUpdates");
+        _autoStartText  = Loc.S("MenuAutoStart");
+        _diagnosticText = Loc.S("MenuDiagnostic");
+        _aboutText      = Loc.S("MenuAbout");
+        _exitText       = Loc.S("MenuExit");
     }
 
     /// <summary>Убить tray icon явно: предотвращает crash от post-Exit click.</summary>
     public void DisposeAll()
     {
+        // Окно меню закрываем явно: незакрытое окно WinUI удерживает процесс живым
+        // после выхода из приложения.
+        try { _menuWindow?.Close(); } catch { }
+        _menuWindow = null;
         try { Tray?.Dispose(); } catch { }
     }
 
@@ -134,11 +112,10 @@ public sealed partial class TrayIconHost : UserControl
         if (_diagInProgress) { App.LogStatic("DiagnosticClick: сбор уже идёт"); return; }
         _diagInProgress = true;
 
-        // Меню закрываем сразу, иначе оно висит замороженным пока идёт сборка.
-        try { (Tray.ContextFlyout as MenuFlyout)?.Hide(); } catch { }
-        string prevText = DiagnosticMenuItem.Text;
-        DiagnosticMenuItem.IsEnabled = false;
-        DiagnosticMenuItem.Text = Loc.S("MenuDiagnosticWorking");
+        // Меню закрываем сразу, иначе оно висит открытым пока идёт сборка.
+        try { _menuWindow?.Hide(); } catch { }
+        string prevText = _diagnosticText;
+        _diagnosticText = Loc.S("MenuDiagnosticWorking");
         try
         {
             // Вся работа (до 20 МБ логов + WMI-запросы + zip) уходит с UI-потока:
@@ -165,8 +142,7 @@ public sealed partial class TrayIconHost : UserControl
         }
         finally
         {
-            DiagnosticMenuItem.Text = prevText;
-            DiagnosticMenuItem.IsEnabled = true;
+            _diagnosticText = prevText;
             _diagInProgress = false;
         }
     }
@@ -318,11 +294,7 @@ public sealed partial class TrayIconHost : UserControl
         _pendingUpdate = info;
         try
         {
-            if (UpdateMenuItem != null)
-            {
-                UpdateMenuItem.Text = Loc.F("MenuUpdateTo", info.Version);
-                UpdateMenuItem.Visibility = Visibility.Visible;
-            }
+            _updateText = Loc.F("MenuUpdateTo", info.Version);
 
             // Юзер уже нажал «Позже» для этой версии — пункт меню обновляем (установка
             // остаётся в один клик), но тост не показываем. Иначе одно и то же
@@ -495,7 +467,7 @@ public sealed partial class TrayIconHost : UserControl
     }
     async void AutoStartClick(object sender, RoutedEventArgs e)
     {
-        bool wanted = AutoStartItem.IsChecked;
+        bool wanted = !IsAutostart();   // пункт работает как переключатель
         try
         {
             var task = await Windows.ApplicationModel.StartupTask.GetAsync(StartupTaskId);
@@ -517,8 +489,6 @@ public sealed partial class TrayIconHost : UserControl
             //  DisabledByPolicy: групповая политика запрещает).
             bool actuallyOn = newState == Windows.ApplicationModel.StartupTaskState.Enabled
                            || newState == Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
-            if (AutoStartItem.IsChecked != actuallyOn) AutoStartItem.IsChecked = actuallyOn;
-
             // Если хотели включить но Windows заблокировала — объяснить юзеру.
             if (wanted && !actuallyOn)
             {
@@ -536,8 +506,8 @@ public sealed partial class TrayIconHost : UserControl
         catch (Exception ex)
         {
             App.LogStatic("AutoStartClick ex: " + ex.Message);
-            // Синхронизируем UI с реальным state (откатим галочку если операция сфейлилась).
-            try { AutoStartItem.IsChecked = IsAutostart(); } catch { }
+            // Галочку откатывать не нужно: меню пересобирается перед каждым показом и
+            // читает реальный StartupTaskState.
             ShowError(Loc.F("AutoStartChangeFailed", ex.Message));
         }
     }
@@ -557,29 +527,10 @@ public sealed partial class TrayIconHost : UserControl
         catch { return false; }
     }
 
-    // Нативное меню (ContextMenuMode=PopupMenu) выполняет привязанную Command и
-    // полностью игнорирует Click — проверено: с Click пункты открывались, но ничего
-    // не делали. Обработчики те же, просто вызываются через команду.
-    public ICommand OpenCmd       => _openCmd       ??= new Relay(() => OpenClick(this, new RoutedEventArgs()));
-    public ICommand RefreshCmd    => _refreshCmd    ??= new Relay(() => RefreshClick(this, new RoutedEventArgs()));
-    public ICommand UpdateCmd     => _updateCmd     ??= new Relay(() => UpdateClick(this, new RoutedEventArgs()));
-    public ICommand AutoStartCmd  => _autoStartCmd  ??= new Relay(() => AutoStartClick(this, new RoutedEventArgs()));
-    public ICommand DiagnosticCmd => _diagnosticCmd ??= new Relay(() => DiagnosticClick(this, new RoutedEventArgs()));
-    public ICommand AboutCmd      => _aboutCmd      ??= new Relay(() => AboutClick(this, new RoutedEventArgs()));
-    public ICommand ExitCmd       => _exitCmd       ??= new Relay(() => ExitClick(this, new RoutedEventArgs()));
+    /// <summary>Правый клик по иконке — показываем собственное меню.</summary>
+    public ICommand ShowMenuCmd => _showMenuCmd ??= new Relay(ShowTrayMenu);
 
-    /// <summary>Выполняется на правый клик по иконке, перед показом меню. В режиме
-    /// PopupMenu событие MenuFlyout.Opening не поднимается, а галочку автозапуска надо
-    /// сверить с реальным StartupTaskState: пользователь мог переключить его в
-    /// Параметрах Windows между показами.</summary>
-    public ICommand SyncMenuStateCmd => _syncCmd ??= new Relay(() =>
-    {
-        try { AutoStartItem.IsChecked = IsAutostart(); }
-        catch (Exception ex) { App.LogStatic("SyncMenuState ex: " + ex.Message); }
-    });
-
-    ICommand? _syncCmd;
-    ICommand? _openCmd, _refreshCmd, _updateCmd, _autoStartCmd, _diagnosticCmd, _aboutCmd, _exitCmd;
+    ICommand? _showMenuCmd;
 
     sealed class Relay : ICommand
     {

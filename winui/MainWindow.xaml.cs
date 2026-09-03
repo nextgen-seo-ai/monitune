@@ -722,6 +722,10 @@ public sealed partial class MainWindow : Window
     /// <summary>Принудительный вывод окна на передний план.
     /// Windows блокирует SetForegroundWindow если у нас нет input focus —
     /// обходим через AttachThreadInput к потоку текущего активного окна.</summary>
+    /// <summary>Тот же подъём окна поверх остальных — нужен окну меню трея,
+    /// которое живёт отдельно, но показывается по той же схеме.</summary>
+    public static void ForceToTopPublic(IntPtr hwnd) => ForceToTop(hwnd);
+
     static void ForceToTop(IntPtr hwnd)
     {
         try

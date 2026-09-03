@@ -36,7 +36,7 @@ public sealed partial class TrayIconHost : UserControl
     // Подписи пунктов живут здесь, а не в элементах разметки: меню — собственное окно,
     // которое пересобирается перед каждым показом. Часть подписей меняется на ходу
     // («Обновить до X.Y.Z», «Собираю диагностику…»).
-    string _openText = "", _refreshText = "", _updateText = "";
+    string _updateText = "";
     string _autoStartText = "", _diagnosticText = "", _aboutText = "", _exitText = "";
 
     TrayMenuWindow? _menuWindow;
@@ -47,10 +47,12 @@ public sealed partial class TrayIconHost : UserControl
         try
         {
             _menuWindow ??= new TrayMenuWindow();
+            // «Открыть панель» и «Переопределить мониторы» из меню убраны: панель и так
+            // открывается левым кликом по иконке, а пересканирование есть кнопкой в самой
+            // панели. Вдобавок открытие панели из меню срабатывало криво — она появлялась
+            // и тут же пропадала, потому что закрытие меню уводило фокус.
             var items = new List<TrayMenuWindow.Item>
             {
-                new() { Text = _openText,       Icon = Symbol.OpenLocal, Invoke = () => OpenClick(this, new RoutedEventArgs()) },
-                new() { Text = _refreshText,    Icon = Symbol.Refresh,   Invoke = () => RefreshClick(this, new RoutedEventArgs()) },
                 new() { Text = _updateText,     Icon = Symbol.Download,  Invoke = () => UpdateClick(this, new RoutedEventArgs()) },
                 new() { IsSeparator = true },
                 // Галочку сверяем с реальным StartupTaskState при каждом показе: юзер мог
@@ -73,8 +75,6 @@ public sealed partial class TrayIconHost : UserControl
     {
         Tray.ToolTipText     = Loc.S("TrayTooltip");
         TrayToolTipText.Text = Loc.S("MenuHeader");
-        _openText       = Loc.S("MenuOpen");
-        _refreshText    = Loc.S("MenuRefresh");
         _updateText     = Loc.S("MenuCheckUpdates");
         _autoStartText  = Loc.S("MenuAutoStart");
         _diagnosticText = Loc.S("MenuDiagnostic");

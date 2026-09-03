@@ -40,16 +40,22 @@ public class Settings
     /// <summary>Разрешить установку версии меньше текущей (downgrade). По умолчанию false — защита от отката на уязвимую сборку.
     /// Намеренно не выводится в UI: юзер должен явно править settings.json, чтобы случайно не выключить защиту.</summary>
     public bool AllowDowngrade { get; set; } = false;
+
+    /// <summary>Версия применённых умолчаний. Нужна, чтобы разово подтянуть новые значения
+    /// в уже существующие конфиги и больше их не трогать.</summary>
+    public int DefaultsVersion { get; set; }
 }
 
 public class KeepAwakeSettings
 {
-    /// <summary>Не давать компьютеру и экрану засыпать (SetThreadExecutionState).</summary>
-    public bool PreventSleep { get; set; }
+    /// <summary>Не давать компьютеру и экрану засыпать (SetThreadExecutionState).
+    /// Включено по умолчанию: часть мониторов теряет DDC/CI после того, как экран
+    /// погас, и до перезагрузки канал уже не поднимается.</summary>
+    public bool PreventSleep { get; set; } = true;
 
     /// <summary>Имитация активности — невидимое движение мыши раз в N секунд.
     /// Показывает пользователя онлайн в Teams/Slack/Discord/любых статус-приложениях.</summary>
-    public bool SimulateActivity { get; set; }
+    public bool SimulateActivity { get; set; } = true;
 
     /// <summary>Интервал имитации в секундах.</summary>
     public int IntervalSec { get; set; } = 30;
@@ -62,7 +68,9 @@ public class KeepAwakeSettings
 
 public class MonitorSettings
 {
-    public bool LinkBrightnessContrast { get; set; }
+    /// <summary>Яркость и контраст двигаются вместе. Включено по умолчанию — так
+    /// картинка остаётся сбалансированной при подстройке одним движением.</summary>
+    public bool LinkBrightnessContrast { get; set; } = true;
     public int DayBrightness { get; set; } = -1;
     public int DayContrast { get; set; } = -1;
 }
@@ -130,6 +138,24 @@ public static class SettingsStore
 
         // Миграция старых конфликтующих хоткеев Ctrl+Alt+Стрелки → PgUp/PgDn.
         MigrateConflictingHotkeys();
+        ApplyNewDefaultsOnce();
+    }
+
+    /// <summary>Новые значения по умолчанию доходят только до чистых установок:
+    /// у остальных settings.json уже лежит на диске со старыми false. Один раз
+    /// доводим существующие конфиги до новых умолчаний и помечаем это в файле,
+    /// чтобы повторно не перебивать осознанный выбор пользователя.</summary>
+    static void ApplyNewDefaultsOnce()
+    {
+        const int CurrentDefaultsVersion = 1;
+        if (Current.DefaultsVersion >= CurrentDefaultsVersion) return;
+
+        Current.KeepAwake.PreventSleep = true;
+        Current.KeepAwake.SimulateActivity = true;
+        foreach (var m in Current.Monitors.Values) m.LinkBrightnessContrast = true;
+
+        Current.DefaultsVersion = CurrentDefaultsVersion;
+        Save();
     }
 
     static void MigrateConflictingHotkeys()

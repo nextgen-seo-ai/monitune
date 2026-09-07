@@ -154,7 +154,17 @@ public sealed partial class MainWindow : Window
         // погас): тогда прилетит «?», и объяснение должно появиться вместе с ним.
         else if (m.OutputTechnology != OutputTech.Internal)
         {
-            var lost = MakeCautionBanner(Loc.S("BannerLostConnection"));
+            // Кнопка здесь, а не в настройках: пользователь видит проблему именно в этот
+            // момент, и лечение должно быть в одном движении от неё.
+            var restoreBtn = new Button
+            {
+                Content = Loc.S("BannerRestoreAction"),
+                FontSize = 12,
+                Padding = new Thickness(10, 4, 10, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            restoreBtn.Click += async (_, _) => await RestoreLinkAsync(m, restoreBtn);
+            var lost = MakeCautionBanner(Loc.S("BannerLostConnection"), restoreBtn);
             lost.Visibility = Visibility.Collapsed;
             sp.Children.Add(lost);
             lostBanners[idx] = lost;
@@ -261,14 +271,80 @@ public sealed partial class MainWindow : Window
     /// готовым и показываем реактивно из <see cref="SetValue"/>.</summary>
     readonly Dictionary<int, Border> lostBanners = new();
 
-    static Border MakeCautionBanner(string msg) => new Border
+    /// <summary>Перезапустить драйвер видеокарты, чтобы поднять отвалившийся DDC/CI-канал.
+    /// Действие заметное — экран моргает, окна могут переехать, — поэтому сначала
+    /// спрашиваем, а Windows затем спросит ещё и про права администратора.</summary>
+    async System.Threading.Tasks.Task RestoreLinkAsync(MonInfo m, Button btn)
     {
-        Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBackgroundBrush"],
-        BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
-        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
-        Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 4, 0, 4),
-        Child = new TextBlock { Text = msg, FontSize = 11, TextWrapping = TextWrapping.Wrap, Opacity = 0.9 },
-    };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = Loc.S("RestoreTitle"),
+            Content = new TextBlock { Text = Loc.S("RestoreBody"), TextWrapping = TextWrapping.Wrap },
+            PrimaryButtonText = Loc.S("RestoreOk"),
+            CloseButtonText = Loc.S("RestoreCancel"),
+            DefaultButton = ContentDialogButton.Close,
+        };
+
+        ContentDialogResult answer;
+        try { answer = await dialog.ShowAsync(); }
+        catch (Exception ex) { App.LogStatic("RestoreLink dialog ex: " + ex.Message); return; }
+        if (answer != ContentDialogResult.Primary) return;
+
+        string? adapter = DisplayDriverRestarter.FindAdapterId(m.AdapterName);
+        if (adapter == null)
+        {
+            App.LogStatic("RestoreLink: адаптер не определён");
+            ShowToast(Loc.S("RestoreNoAdapter"));
+            return;
+        }
+
+        btn.IsEnabled = false;
+        try
+        {
+            var result = await DisplayDriverRestarter.RestartAsync(adapter);
+            if (result == DisplayDriverRestarter.Result.Cancelled) return;
+            if (result != DisplayDriverRestarter.Result.Ok)
+            {
+                ShowToast(Loc.S("RestoreFailedMsg"));
+                return;
+            }
+
+            // Драйвер поднимается не мгновенно, и номера дисплеев после перезапуска
+            // меняются — поэтому именно полное перечисление, а не повторное чтение.
+            await System.Threading.Tasks.Task.Delay(4000);
+            await RefreshMonitorsAsync(notify: false);
+            ShowToast(Loc.S("RestoreDone"));
+        }
+        finally { btn.IsEnabled = true; }
+    }
+
+    static void ShowToast(string message)
+    {
+        try { (Application.Current as App)?.NotifyFromPanel(message); }
+        catch (Exception ex) { App.LogStatic("ShowToast ex: " + ex.Message); }
+    }
+
+    static Border MakeCautionBanner(string msg, UIElement? action = null)
+    {
+        var text = new TextBlock { Text = msg, FontSize = 11, TextWrapping = TextWrapping.Wrap, Opacity = 0.9 };
+        UIElement child = text;
+        if (action != null)
+        {
+            var stack = new StackPanel { Spacing = 8 };
+            stack.Children.Add(text);
+            stack.Children.Add(action);
+            child = stack;
+        }
+        return new Border
+        {
+            Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBackgroundBrush"],
+            BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 4, 0, 4),
+            Child = child,
+        };
+    }
 
     static Border? BuildStatusBanner(MonInfo m)
     {

@@ -381,6 +381,14 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Показать уведомление по просьбе панели — сама панель до иконки трея
+    /// не дотягивается.</summary>
+    internal void NotifyFromPanel(string message)
+    {
+        try { _trayWindow?.Tray?.ShowError(message); }
+        catch (Exception ex) { L("NotifyFromPanel ex: " + ex.Message); }
+    }
+
     internal void ShowFlyout() => ShowFlyoutAt(useTrayPosition: false);
 
     internal void ShowFlyoutAt(bool useTrayPosition)

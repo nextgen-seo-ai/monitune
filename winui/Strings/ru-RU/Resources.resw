@@ -391,4 +391,30 @@
   <data name="AboutLicenseHeader" xml:space="preserve">
     <value>Полный текст лицензионного соглашения</value>
   </data>
+  <data name="BannerRestoreAction" xml:space="preserve">
+    <value>Восстановить связь</value>
+  </data>
+  <data name="RestoreTitle" xml:space="preserve">
+    <value>Перезапустить драйвер видеокарты?</value>
+  </data>
+  <data name="RestoreBody" xml:space="preserve">
+    <value>Монитор жив, но не отвечает на команды по кабелю. Поднять связь можно только перезапуском драйвера — Windows запросит права администратора.
+
+Экран моргнёт на несколько секунд, окна могут переехать между мониторами. Несохранённые данные в приложениях не пострадают.</value>
+  </data>
+  <data name="RestoreOk" xml:space="preserve">
+    <value>Перезапустить</value>
+  </data>
+  <data name="RestoreCancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="RestoreDone" xml:space="preserve">
+    <value>Драйвер перезапущен, связь с монитором восстановлена.</value>
+  </data>
+  <data name="RestoreFailedMsg" xml:space="preserve">
+    <value>Не удалось перезапустить драйвер. Помогает перезагрузка компьютера.</value>
+  </data>
+  <data name="RestoreNoAdapter" xml:space="preserve">
+    <value>Не удалось определить видеоадаптер для перезапуска.</value>
+  </data>
 </root>

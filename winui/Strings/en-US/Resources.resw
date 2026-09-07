@@ -391,4 +391,30 @@ Settings → Apps → Startup → MoniTune.</value>
   <data name="AboutLicenseHeader" xml:space="preserve">
     <value>Full text of the license agreement</value>
   </data>
+  <data name="BannerRestoreAction" xml:space="preserve">
+    <value>Restore connection</value>
+  </data>
+  <data name="RestoreTitle" xml:space="preserve">
+    <value>Restart the graphics driver?</value>
+  </data>
+  <data name="RestoreBody" xml:space="preserve">
+    <value>The monitor is alive but ignores commands sent over the cable. The only way to bring the link back is restarting the driver, so Windows will ask for administrator rights.
+
+The screen will blink for a few seconds and windows may move between monitors. Unsaved work in your applications is not affected.</value>
+  </data>
+  <data name="RestoreOk" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="RestoreCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="RestoreDone" xml:space="preserve">
+    <value>Driver restarted, the monitor link is back.</value>
+  </data>
+  <data name="RestoreFailedMsg" xml:space="preserve">
+    <value>Could not restart the driver. Restarting the computer helps.</value>
+  </data>
+  <data name="RestoreNoAdapter" xml:space="preserve">
+    <value>Could not identify the graphics adapter to restart.</value>
+  </data>
 </root>

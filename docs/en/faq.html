@@ -467,6 +467,20 @@
   adapter, software control is impossible: such adapters do not carry the service channel.
 </p>
 
+<h3>The monitor ignores commands after being switched off</h3>
+<p>
+  The monitor works, its own buttons and on-screen menu respond, but brightness from the
+  panel does nothing and the values show &ldquo;?&rdquo;. This happens after the monitor
+  loses power: the control channel gets stuck on the graphics driver side. Reconnecting,
+  retrying and waiting do not help &mdash; the channel stays silent even hours later.
+</p>
+<p>
+  A <strong>Restore connection</strong> button appears in that monitor's card. It restarts
+  the graphics driver: Windows asks for administrator rights, the screen blinks for a few
+  seconds and windows may move between monitors. Unsaved work in your applications is not
+  affected. The link is back once the driver has restarted.
+</p>
+
 <h3>A monitor disappeared from the panel</h3>
 <p>
   MoniTune shows the displays Windows reports. Check <kbd>Win</kbd> + <kbd>P</kbd> — the mode

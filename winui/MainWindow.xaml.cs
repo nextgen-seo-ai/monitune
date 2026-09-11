@@ -422,15 +422,42 @@ public sealed partial class MainWindow : Window
         sl.KeyDown += (_, _) => _draggingKeys.Add(key);
         sl.KeyUp += (_, _) => _draggingKeys.Remove(key);
         sl.LostFocus += (_, _) => _draggingKeys.Remove(key);
-        // PointerWheel на slider тоже меняет value — блокируем на 500ms после каждого scroll.
-        sl.PointerWheelChanged += (_, _) =>
+        // Колесо мыши. У Slider в WinUI 3 своей поддержки колеса нет: прежний обработчик
+        // только ставил блокировку от «прыжков» и значение не менял, поэтому прокрутка над
+        // ползунком ничего не делала. Один щелчок колеса — один шаг из настроек, тот же, что
+        // у горячих клавиш. Значение ставим через sl.Value: дальше срабатывает тот же
+        // SliderChanged, что и при перетаскивании, — со связкой, синхронным режимом и
+        // троттлингом записи в монитор.
+        int wheelAccum = 0;
+        var wheelHold = DispatcherQueue.CreateTimer();
+        wheelHold.Interval = TimeSpan.FromMilliseconds(500);
+        wheelHold.IsRepeating = false;
+        wheelHold.Tick += (_, _) => _draggingKeys.Remove(key);
+        sl.PointerWheelChanged += (_, e) =>
         {
+            var props = e.GetCurrentPoint(sl).Properties;
+            if (!sl.IsEnabled || props.IsHorizontalMouseWheel) return;
+            // Иначе вместе с ползунком прокручивается вся панель.
+            e.Handled = true;
+
+            // Точные тачпады присылают колесо мелкими порциями — копим до целого щелчка.
+            wheelAccum += props.MouseWheelDelta;
+            int notches = wheelAccum / 120;
+            if (notches == 0) return;
+            wheelAccum -= notches * 120;
+
+            int step = Math.Max(1, SettingsStore.Current.StepSize);
+            int current = (int)Math.Round(sl.Value);
+            int next = Math.Clamp(current + notches * step, 0, 100);
+            if (next == current) return;
+
+            // Пока колесо крутится, ответы железа не должны перетягивать ползунок назад.
+            // Таймер один на ползунок и перезапускается на каждый щелчок: раньше каждый
+            // щелчок заводил свой таймер, и первый снимал блокировку посреди прокрутки.
             _draggingKeys.Add(key);
-            var wheelTimer = DispatcherQueue.CreateTimer();
-            wheelTimer.Interval = TimeSpan.FromMilliseconds(500);
-            wheelTimer.IsRepeating = false;
-            wheelTimer.Tick += (_, _) => _draggingKeys.Remove(key);
-            wheelTimer.Start();
+            wheelHold.Stop();
+            wheelHold.Start();
+            sl.Value = next;
         };
         Grid.SetColumn(sl, 1); g.Children.Add(sl);
         bars[key] = sl;

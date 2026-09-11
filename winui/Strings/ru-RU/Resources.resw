@@ -191,7 +191,7 @@
     <value>Шаг изменения яркости и контраста</value>
   </data>
   <data name="SettingsStepHint" xml:space="preserve">
-    <value>На сколько процентов меняется значение при использовании горячих клавиш.</value>
+    <value>На сколько процентов меняется значение за одно нажатие горячей клавиши или щелчок колеса мыши над ползунком.</value>
   </data>
   <data name="SettingsNightTitle" xml:space="preserve">
     <value>Ночной режим</value>

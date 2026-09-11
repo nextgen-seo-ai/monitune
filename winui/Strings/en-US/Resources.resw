@@ -191,7 +191,7 @@ verify delay: {2} ms</value>
     <value>Brightness and contrast step size</value>
   </data>
   <data name="SettingsStepHint" xml:space="preserve">
-    <value>How much the value changes, in percent, when you use a keyboard shortcut.</value>
+    <value>How much the value changes, in percent, per keyboard shortcut press or mouse wheel notch over a slider.</value>
   </data>
   <data name="SettingsNightTitle" xml:space="preserve">
     <value>Night mode</value>

@@ -1,20 +1,27 @@
 {
-  "generated_at": "2026-09-07T15:15:25Z",
-  "release_tag": "v1.3.17",
+  "generated_at": "2026-09-11T09:02:27Z",
+  "release_tag": "v1.3.18",
   "releases": [
     {
-      "tag": "v1.3.17",
-      "published": "2026-09-07T15:15:20Z",
+      "tag": "v1.3.18",
+      "published": "2026-09-11T09:02:14Z",
       "setup": 0,
       "msix": 0,
       "manifest": 0
+    },
+    {
+      "tag": "v1.3.17",
+      "published": "2026-09-07T15:15:20Z",
+      "setup": 1,
+      "msix": 3,
+      "manifest": 66
     },
     {
       "tag": "v1.3.16",
       "published": "2026-09-07T12:30:19Z",
       "setup": 0,
       "msix": 1,
-      "manifest": 1
+      "manifest": 2
     },
     {
       "tag": "v1.3.15",

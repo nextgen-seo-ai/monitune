@@ -54,7 +54,9 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          if ($tag -match '^v(\d+\.\d+\.\d+(\.\d+)?)$') {
+          # Суффикс через дефис (v1.3.19-rc1) — релиз-кандидат: версия берётся числовая,
+          # а сам релиз помечается предварительным и до пользователей не доходит.
+          if ($tag -match '^v(\d+\.\d+\.\d+(\.\d+)?)(-[A-Za-z0-9.]+)?$') {
             $v = $Matches[1]
           } elseif ("${{ github.event.inputs.version }}") {
             $v = "${{ github.event.inputs.version }}"
@@ -378,7 +380,7 @@ jobs:
 
             Подпись `latest.json` — Ed25519, публичный ключ зашит в приложение.
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           files: |
             ${{ steps.setup.outputs.SETUP_PATH }}
@@ -392,6 +394,8 @@ jobs:
       # три порядка выше), результат кладётся в docs/stats/data.json и обновляется с
       # каждым выпуском.
       - name: Update site version and stats snapshot
+        # Релиз-кандидат сайт не трогает: на сайте остаётся версия, которая есть у пользователей.
+        if: ${{ !contains(github.ref_name, '-') }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -44,6 +44,10 @@ public class Settings
     /// <summary>Версия применённых умолчаний. Нужна, чтобы разово подтянуть новые значения
     /// в уже существующие конфиги и больше их не трогать.</summary>
     public int DefaultsVersion { get; set; }
+
+    /// <summary>Разовое включение автозапуска уже выполнено. До 1.3.19 StartupTask в манифесте
+    /// был Enabled="false": без ручной галочки приложение с Windows не стартовало.</summary>
+    public bool AutostartDefaultApplied { get; set; }
 }
 
 public class KeepAwakeSettings

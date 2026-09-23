@@ -65,7 +65,9 @@
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-48_altform-lightunplated.png" />
     <Content Include="Assets\StoreLogo.png" />
-    <Content Include="Assets\AppIcon.ico" />
+    <!-- CopyToOutputDirectory: без этого в непакетном запуске (bin\...\win-x64) файла нет,
+         H.NotifyIcon падает на загрузке иконки и значок в трее не создаётся вовсе. -->
+    <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
     <EmbeddedResource Include="BuildResources\pnp_vendors.tsv.gz" />
     <EmbeddedResource Include="BuildResources\monitor_models.tsv.gz" />

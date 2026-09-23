@@ -15,8 +15,15 @@ namespace MonitorTune;
 public static class Program
 {
     [STAThread]
-    static int Main(string[] _)
+    static int Main(string[] args)
     {
+        // --autostart передаёт задание планировщика (AutostartService). Если приложение уже
+        // поднято через StartupTask, второй копии делать нечего: выходим молча, БЕЗ
+        // RedirectActivation — иначе главный instance примет это за клик по ярлыку и
+        // покажет панель поверх рабочего стола сразу после входа в систему.
+        bool fromAutostartTask = Array.Exists(args,
+            a => string.Equals(a, "--autostart", StringComparison.OrdinalIgnoreCase));
+
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
         var mainInstance = AppInstance.FindOrRegisterForKey("MonitorTune-Main");
@@ -24,6 +31,7 @@ public static class Program
 
         if (!mainInstance.IsCurrent)
         {
+            if (fromAutostartTask) return 0;
             // Основной instance уже запущен — пересылаем ему activation (toast click и т.д.)
             // и выходим. Так у пользователя всегда один tray-иконка.
             // GetResult() вместо .Wait() чтобы не оборачивать exception в AggregateException,
@@ -39,6 +47,7 @@ public static class Program
 
         // Язык ставим до Application.Start: XAML с x:Uid подставляет строки в момент
         // загрузки разметки, поэтому переключение после создания окон уже не подействует.
+        App.LaunchedByAutostartTask = fromAutostartTask;
         SettingsStore.Load();
         Loc.ApplyLanguage(SettingsStore.Current.Language);
 

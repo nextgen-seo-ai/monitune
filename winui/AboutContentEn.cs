@@ -65,8 +65,9 @@ internal static class AboutContentEn
         "checking can be disabled in the Settings window.\n\n" +
         "If the program crashes, a diagnostic report is saved locally to the LocalCache\\crashes " +
         "folder; reports are never sent automatically.\n\n" +
-        "At your request from the tray menu, the program can add itself to the Windows " +
-        "startup list (StartupTask); you can turn it off from the same menu or under " +
+        "The program adds itself to the Windows startup list (StartupTask) and creates the " +
+        "“MoniTune Autostart” logon task in Task Scheduler; this is enabled by default and " +
+        "can be turned off from the tray menu or under " +
         "Settings → Apps → Startup. Update notifications use the Windows AppNotifications " +
         "system service.\n\n" +
         "Hardware interaction is limited to the local DDC/CI bus of connected external " +
@@ -162,8 +163,9 @@ internal static class AboutContentEn
         "disabled in the Settings window. If the program crashes, a diagnostic report is " +
         "created locally (the LocalCache\\crashes folder); reports are never sent " +
         "automatically.\n\n" +
-        "If the User chooses, the program can add itself to the Windows startup list " +
-        "and use the Windows notification service for update alerts.\n\n" +
+        "The program adds itself to the Windows startup list and creates a logon task in " +
+        "Windows Task Scheduler; this is enabled by default and can be turned off from the " +
+        "program's menu. Update alerts use the Windows notification service.\n\n" +
         "7. System requirements\n" +
         "Supported operating systems: Windows 10 version 2004 (20H1, build 19041) or newer, " +
         "and Windows 11. Controlling image parameters requires a monitor with DDC/CI support " +

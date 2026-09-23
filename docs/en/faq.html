@@ -393,9 +393,16 @@
 
 <h2 id="autostart">Start with Windows</h2>
 <p>
-  <strong>Start with Windows</strong> in the icon menu adds MoniTune to Windows startup. Windows requires
-  confirmation for apps installed outside the Microsoft Store: if the system declines the
-  request, MoniTune shows a notification pointing to the right settings page.
+  Since version 1.3.19 startup is on right after installation, so there is nothing to switch on.
+  To turn it off, use <strong>Start with Windows</strong> in the icon menu. If Windows declines a
+  request to switch it back on — which happens with apps installed outside the Microsoft Store —
+  MoniTune shows a notification pointing to the right settings page.
+</p>
+<p>
+  On top of the regular startup entry, MoniTune creates the <strong>“MoniTune Autostart”</strong>
+  task in Windows Task Scheduler, which starts the program when you sign in. It covers the case
+  when Windows restarts itself to install updates: after such a restart the regular startup entry
+  does not always fire. The task is removed together with the startup setting.
 </p>
 <div class="note">
   <p>

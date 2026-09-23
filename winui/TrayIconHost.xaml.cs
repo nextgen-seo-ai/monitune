@@ -489,6 +489,9 @@ public sealed partial class TrayIconHost : UserControl
             //  DisabledByPolicy: групповая политика запрещает).
             bool actuallyOn = newState == Windows.ApplicationModel.StartupTaskState.Enabled
                            || newState == Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+            // Задание планировщика — дубль на случай, когда Windows не поднимает StartupTask
+            // (перезагрузка после обновления с автоматическим входом в систему).
+            AutostartService.Sync(actuallyOn);
             // Если хотели включить но Windows заблокировала — объяснить юзеру.
             if (wanted && !actuallyOn)
             {

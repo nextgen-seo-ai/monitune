@@ -115,6 +115,9 @@ public partial class App : Application
     /// <summary>Snapshot последних N строк для crash-репорта.</summary>
     public static string[] LogTailSnapshot() => _logRing.ToArray();
 
+    /// <summary>Процесс поднят заданием планировщика (MoniTune.exe --autostart), а не человеком.</summary>
+    public static bool LaunchedByAutostartTask;
+
     public App()
     {
         InitializeComponent();
@@ -268,6 +271,10 @@ public partial class App : Application
             L("AppNotifications registered");
         }
         catch (Exception ex) { L("AppNotifications register ex: " + ex.Message); }
+
+        // Автозапуск: разово включить у тех, кто обновился со старой версии, и держать
+        // задание планировщика в соответствии с состоянием StartupTask.
+        _ = AutostartService.ApplyAsync(LaunchedByAutostartTask);
 
         L("OnLaunched done");
 

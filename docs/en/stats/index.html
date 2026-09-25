@@ -220,6 +220,23 @@ h1.stats-title em {
   margin-top: 6px;
 }
 
+.how-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--paper-dim);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.how-list b { color: var(--paper); font-weight: 600; }
+.how-list code { font-family: var(--mono); font-size: 12.5px; color: var(--amber); }
+
+.th-sub {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.55;
+}
+
 /* ── Section head ────────────────────────────────── */
 .section-head {
   font-family: var(--mono);
@@ -394,9 +411,9 @@ h1.stats-title em {
     <div class="eyebrow">Statistics · GitHub API · live</div>
     <h1 class="stats-title">Current version <em id="live-em">…</em></h1>
     <p class="stats-lede">
-      Data from the GitHub Releases API — download counts per version, automatic updates of
-      older clients, manifest fetches. Nothing is collected on a backend and there is no
-      telemetry: only public information from the releases.
+      How many times the installer was downloaded, how many times the app updated itself and
+      how often it checks for a new version. These are file downloads from GitHub Releases, not
+      people: the app has no telemetry and nothing is collected on a server.
     </p>
     <p class="stats-note">
       The snapshot is refreshed with every release; on open the page also asks the API
@@ -407,33 +424,45 @@ h1.stats-title em {
 
   <section class="metrics" id="metrics">
     <div class="metric-item">
-      <div class="metric-label">Installs</div>
+      <div class="metric-label">New installs</div>
       <div class="metric-value" id="m-installs">—</div>
-      <div class="metric-sub">setup.exe from the site</div>
+      <div class="metric-sub">downloads of the setup.exe installer</div>
     </div>
     <div class="metric-item">
-      <div class="metric-label">Auto-updates</div>
+      <div class="metric-label">Updates</div>
       <div class="metric-value" id="m-updates">—</div>
-      <div class="metric-sub">MSIX to existing clients</div>
+      <div class="metric-sub">the app fetched a new package itself</div>
     </div>
     <div class="metric-item">
-      <div class="metric-label">Checks</div>
+      <div class="metric-label">Version checks</div>
       <div class="metric-value" id="m-checks">—</div>
-      <div class="metric-sub">latest.json requests</div>
+      <div class="metric-sub">latest.json on start and every 4 hours</div>
     </div>
     <div class="metric-item">
-      <div class="metric-label">Current</div>
+      <div class="metric-label">Current version</div>
       <div class="metric-value small" id="m-current">—</div>
       <div class="metric-sub" id="m-current-date">—</div>
     </div>
   </section>
+
+  <div class="section-head">How to read these numbers</div>
+  <ul class="how-list">
+    <li><b>New installs</b> — downloads of the <code>setup.exe</code> installer from the site.
+      One person who downloads the file twice counts as two.</li>
+    <li><b>Updates</b> — how many times an already installed copy fetched the
+      <code>.msix</code> package itself. Over a month one person produces as many updates as
+      there were releases.</li>
+    <li><b>Version checks</b> — requests for <code>latest.json</code>: on start and every four
+      hours. This is activity, not the number of people.</li>
+    <li><b>How many people use the app is not visible here</b> — unique users are not counted.</li>
+  </ul>
 
   <div class="section-head">Releases</div>
   <div id="table-wrap">
     <div class="loading" id="loading">Loading data from the GitHub API…</div>
   </div>
 
-  <div class="section-head" id="dist-head" style="display:none">Installs by version</div>
+  <div class="section-head" id="dist-head" style="display:none">New installs by version</div>
   <div id="dist-wrap"></div>
 
   <footer class="foot">
@@ -534,9 +563,9 @@ function renderTable(releases) {
     <thead>
       <tr>
         <th>Version</th><th>Released</th>
-        <th style="text-align:right">setup.exe</th>
-        <th style="text-align:right">.msix (auto-update)</th>
-        <th style="text-align:right">latest.json</th>
+        <th style="text-align:right">New installs<br><span class="th-sub">setup.exe</span></th>
+        <th style="text-align:right">Updates<br><span class="th-sub">.msix</span></th>
+        <th style="text-align:right">Version checks<br><span class="th-sub">latest.json</span></th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -575,7 +604,8 @@ function render(releases, stamp) {
   document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
   document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
   document.getElementById('m-current').textContent = current.tag;
-  document.getElementById('m-current-date').textContent = 'released ' + fmtDate(current.published);
+  document.getElementById('m-current-date').textContent =
+    'released ' + fmtDate(current.published) + ' · updated to it ' + fmtNumber(current.msix);
 
   document.getElementById('table-wrap').innerHTML = renderTable(releases);
 

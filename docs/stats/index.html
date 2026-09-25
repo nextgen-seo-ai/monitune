@@ -220,6 +220,23 @@ h1.stats-title em {
   margin-top: 6px;
 }
 
+.how-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--paper-dim);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.how-list b { color: var(--paper); font-weight: 600; }
+.how-list code { font-family: var(--mono); font-size: 12.5px; color: var(--amber); }
+
+.th-sub {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.55;
+}
+
 /* ── Section head ────────────────────────────────── */
 .section-head {
   font-family: var(--mono);
@@ -394,9 +411,9 @@ h1.stats-title em {
     <div class="eyebrow">Статистика · GitHub API · live</div>
     <h1 class="stats-title">Актуальная версия <em id="live-em">…</em></h1>
     <p class="stats-lede">
-      Данные из GitHub Releases API — количество скачиваний по каждой версии,
-      auto-updates старых клиентов, обновления манифеста. Ничего не собирается на бэкенде,
-      никакой телеметрии — только публичная информация из релизов.
+      Сколько раз скачали установщик, сколько раз программа обновилась сама и как часто
+      она проверяет версию. Считаются скачивания файлов из GitHub Releases, а не люди:
+      телеметрии в программе нет и на сервере ничего не собирается.
     </p>
     <p class="stats-note">
       Снимок обновляется с выходом каждой версии; при открытии страница дополнительно
@@ -407,33 +424,45 @@ h1.stats-title em {
 
   <section class="metrics" id="metrics">
     <div class="metric-item">
-      <div class="metric-label">Установок</div>
+      <div class="metric-label">Новые установки</div>
       <div class="metric-value" id="m-installs">—</div>
-      <div class="metric-sub">setup.exe с сайта</div>
+      <div class="metric-sub">скачиваний установщика setup.exe</div>
     </div>
     <div class="metric-item">
-      <div class="metric-label">Auto-updates</div>
+      <div class="metric-label">Обновления</div>
       <div class="metric-value" id="m-updates">—</div>
-      <div class="metric-sub">MSIX старым клиентам</div>
+      <div class="metric-sub">программа скачала новый пакет сама</div>
     </div>
     <div class="metric-item">
-      <div class="metric-label">Проверок</div>
+      <div class="metric-label">Проверки версии</div>
       <div class="metric-value" id="m-checks">—</div>
-      <div class="metric-sub">latest.json обращений</div>
+      <div class="metric-sub">запрос latest.json при запуске и раз в 4 часа</div>
     </div>
     <div class="metric-item">
-      <div class="metric-label">Актуальная</div>
+      <div class="metric-label">Актуальная версия</div>
       <div class="metric-value small" id="m-current">—</div>
       <div class="metric-sub" id="m-current-date">—</div>
     </div>
   </section>
+
+  <div class="section-head">Как читать эти цифры</div>
+  <ul class="how-list">
+    <li><b>Новые установки</b> — скачивания установщика <code>setup.exe</code> с сайта. Один
+      человек, скачавший файл дважды, даёт две.</li>
+    <li><b>Обновления</b> — сколько раз уже установленная программа сама забрала пакет
+      <code>.msix</code>. За месяц один человек даёт столько обновлений, сколько вышло версий.</li>
+    <li><b>Проверки версии</b> — обращения к <code>latest.json</code>: при запуске программы и
+      раз в четыре часа. Это активность, а не число людей.</li>
+    <li><b>Сколько человек пользуется программой, отсюда не видно</b> — уникальных
+      пользователей мы не считаем.</li>
+  </ul>
 
   <div class="section-head">Версии</div>
   <div id="table-wrap">
     <div class="loading" id="loading">Загрузка данных из GitHub API…</div>
   </div>
 
-  <div class="section-head" id="dist-head" style="display:none">Распределение установок по версиям</div>
+  <div class="section-head" id="dist-head" style="display:none">Новые установки по версиям</div>
   <div id="dist-wrap"></div>
 
   <footer class="foot">
@@ -534,9 +563,9 @@ function renderTable(releases) {
     <thead>
       <tr>
         <th>Версия</th><th>Выпущена</th>
-        <th style="text-align:right">setup.exe</th>
-        <th style="text-align:right">.msix (auto-update)</th>
-        <th style="text-align:right">latest.json</th>
+        <th style="text-align:right">Новые установки<br><span class="th-sub">setup.exe</span></th>
+        <th style="text-align:right">Обновления<br><span class="th-sub">.msix</span></th>
+        <th style="text-align:right">Проверки версии<br><span class="th-sub">latest.json</span></th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -575,7 +604,8 @@ function render(releases, stamp) {
   document.getElementById('m-updates').textContent = fmtNumber(totalUpdates);
   document.getElementById('m-checks').textContent = fmtNumber(totalChecks);
   document.getElementById('m-current').textContent = current.tag;
-  document.getElementById('m-current-date').textContent = 'выпущена ' + fmtDate(current.published);
+  document.getElementById('m-current-date').textContent =
+    'выпущена ' + fmtDate(current.published) + ' · на неё обновились ' + fmtNumber(current.msix);
 
   document.getElementById('table-wrap').innerHTML = renderTable(releases);
 
